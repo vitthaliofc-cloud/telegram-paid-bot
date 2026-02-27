@@ -17,7 +17,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Video ID missing")
         return
 
-    video_id = int(context.args[0])
+    video_id = context.args[0]
 
     if user_id not in approved_videos or video_id not in approved_videos[user_id]:
         await update.message.reply_text(
@@ -67,7 +67,7 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = int(context.args[0])
-    video_id = int(context.args[1])
+    video_id = context.args[1]
 
     approved_videos.setdefault(user_id, set()).add(video_id)
 
