@@ -29,12 +29,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"`/paid {video_id} TXN_ID`",
             parse_mode="Markdown"
         )
-        return
+    else:
 
     await context.bot.copy_message(
         chat_id=update.effective_chat.id,
         from_chat_id=CHANNEL_ID,
-        message_id=video_id
+        message_id=int(video_id)
     )
 
 async def paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
