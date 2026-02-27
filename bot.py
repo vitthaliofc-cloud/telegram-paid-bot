@@ -67,18 +67,28 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = int(context.args[0])
-    video_id = context.args[1]
+    video_id = context.args[1]  # STRING
 
+    # save approval
     approved_videos.setdefault(user_id, set()).add(video_id)
 
+    # confirm to admin
     await update.message.reply_text(
         f"✅ Approved user {user_id} for video {video_id}"
     )
+
+    # confirm to user
     await context.bot.send_message(
         chat_id=user_id,
         text="🎉 Payment confirmed! Video unlocked."
     )
 
+    # AUTO SEND VIDEO
+    await context.bot.copy_message(
+        chat_id=user_id,
+        from_chat_id=CHANNEL_ID,
+        message_id=int(video_id)  # Telegram message_id must be int
+    )
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("paid", paid))
