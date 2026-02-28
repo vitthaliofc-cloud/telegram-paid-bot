@@ -21,7 +21,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     video_id = context.args[0]
 
     # UPI clickable payment link
-    upi_link = f"upi://pay?pa={UPI_ID}&pn=Mangesh%20Kamble&am=10&cu=INR"
+    upi_link = f"upi://pay?pa={mp0089@ybl}&pn=Mangesh%20Kamble&am=10&cu=INR"
 
     await update.message.reply_text(
         f"🔒 Paid Video\n\n"
