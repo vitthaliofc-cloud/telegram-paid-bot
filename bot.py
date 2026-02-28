@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # -100XXXXXXXXXX
-UPI_ID = os.getenv("UPI_ID")
+UPI_ID = os.getenv("UPI_ID")  # Example: mp0089@ybl
 
 # Keep track of pending approvals
 pending_approvals = {}  # user_id -> set(video_ids)
@@ -20,13 +20,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     video_id = context.args[0]
 
-    # Always ask for payment
+    # UPI clickable payment link
+    upi_link = f"upi://pay?pa={UPI_ID}&pn=Mangesh%20Kamble&am=10&cu=INR"
+
     await update.message.reply_text(
-        "🔒 Paid Video\n\n"
-        "🎥 Price: ₹10 per video\n"
-        f"💳 Pay ₹10 via UPI\n"
-        f"📌 UPI ID: {UPI_ID}\n\n"
-        "Payment नंतर असा message पाठवा:\n"
+        f"🔒 Paid Video\n\n"
+        f"🎥 Price: ₹10 per video\n\n"
+        f"💳 Pay via UPI: [Pay Now]({upi_link})\n\n"
+        f"Payment नंतर असा message पाठवा:\n"
         f"`/paid {video_id} TXN_ID`",
         parse_mode="Markdown"
     )
@@ -97,7 +98,7 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=f"🎉 Payment confirmed! Video delivered. Next time you want to watch, you need to pay again."
     )
     await update.message.reply_text(f"✅ Video sent to user {user_id}")
-    
+
 # ---------------- BOT SETUP ----------------
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
