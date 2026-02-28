@@ -2,51 +2,36 @@ import os
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# Environment variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # Must be -100XXXXXXXXXX
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # -100XXXXXXXXXX
 UPI_ID = os.getenv("UPI_ID")
 
-# In-memory storage for approvals
-approved_videos = {}  # user_id -> set(video_ids)
+# Keep track of pending approvals
+pending_approvals = {}  # user_id -> set(video_ids)
 
-# ---------------- START COMMAND ----------------
+# ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
-    # Check if video ID is provided
     if not context.args:
         await update.message.reply_text("❌ Video ID missing")
         return
 
-    video_id = context.args[0]  # Keep as string
+    video_id = context.args[0]
 
-    # Check if user has approved access
-    if user_id not in approved_videos or video_id not in approved_videos[user_id]:
-        # Payment message
-        await update.message.reply_text(
-            "🔒 Paid Video\n\n"
-            "🎥 Price: ₹10 per video\n\n"
-            f"💳 Pay ₹10 via UPI\n"
-            f"📌 UPI ID: {UPI_ID}\n\n"
-            "Payment नंतर असा message पाठवा:\n"
-            f"`/paid {video_id} TXN_ID`",
-            parse_mode="Markdown"
-        )
-        return
+    # Always ask for payment
+    await update.message.reply_text(
+        "🔒 Paid Video\n\n"
+        "🎥 Price: ₹10 per video\n"
+        f"💳 Pay ₹10 via UPI\n"
+        f"📌 UPI ID: {UPI_ID}\n\n"
+        "Payment नंतर असा message पाठवा:\n"
+        f"`/paid {video_id} TXN_ID`",
+        parse_mode="Markdown"
+    )
 
-    # Send only approved video
-    try:
-        await context.bot.copy_message(
-            chat_id=update.effective_chat.id,
-            from_chat_id=CHANNEL_ID,
-            message_id=int(video_id)  # Telegram message_id must be int
-        )
-    except Exception as e:
-        await update.message.reply_text(f"❌ Video send failed: {e}")
-
-# ---------------- PAID COMMAND ----------------
+# ---------------- PAID ----------------
 async def paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 2:
         await update.message.reply_text("❌ Use: /paid VIDEO_ID TXN_ID")
@@ -56,20 +41,24 @@ async def paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     video_id = context.args[0]
     txn_id = context.args[1]
 
-    # Send payment request to admin
+    # Track pending approval
+    pending_approvals.setdefault(user_id, set()).add(video_id)
+
+    # Notify admin
     await context.bot.send_message(
         chat_id=ADMIN_ID,
         text=(
-            "💰 New Payment Request\n\n"
+            f"💰 New Payment Request\n\n"
             f"👤 User ID: {user_id}\n"
             f"🎥 Video ID: {video_id}\n"
             f"💵 Amount: ₹10\n"
             f"🧾 TXN: {txn_id}"
         )
     )
+
     await update.message.reply_text("✅ Request sent. Approval pending.")
 
-# ---------------- APPROVE COMMAND ----------------
+# ---------------- APPROVE ----------------
 async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
@@ -81,20 +70,34 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = int(context.args[0])
     video_id = context.args[1]
 
-    # Approve only this video for this user
-    approved_videos.setdefault(user_id, set()).add(video_id)
+    # Check pending approvals
+    if user_id not in pending_approvals or video_id not in pending_approvals[user_id]:
+        await update.message.reply_text("❌ No pending payment request for this video")
+        return
 
-    # Notify user
+    # Send video once
+    try:
+        await context.bot.copy_message(
+            chat_id=user_id,
+            from_chat_id=CHANNEL_ID,
+            message_id=int(video_id)
+        )
+    except Exception as e:
+        await update.message.reply_text(f"❌ Video send failed: {e}")
+        return
+
+    # Remove from pending (so next time user has to pay again)
+    pending_approvals[user_id].remove(video_id)
+    if len(pending_approvals[user_id]) == 0:
+        del pending_approvals[user_id]
+
+    # Notify user & admin
     await context.bot.send_message(
         chat_id=user_id,
-        text=f"🎉 Payment confirmed!\n\n👉 Video मिळवण्यासाठी /start {video_id} पाठवा"
+        text=f"🎉 Payment confirmed! Video delivered. Next time you want to watch, you need to pay again."
     )
-
-    # Notify admin
-    await update.message.reply_text(
-        f"✅ Approved user {user_id} for video {video_id}"
-    )
-
+    await update.message.reply_text(f"✅ Video sent to user {user_id}")
+    
 # ---------------- BOT SETUP ----------------
 app = ApplicationBuilder().token(BOT_TOKEN).build()
 app.add_handler(CommandHandler("start", start))
