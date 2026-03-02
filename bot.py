@@ -26,38 +26,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     qr.add_data(upi_link)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
+
     bio = BytesIO()
     bio.name = "upi_qr.png"
-    img.save(bio, "PNG")
+    img.save(bio, format="PNG")
     bio.seek(0)
 
-    # Send QR code + detailed Hindi instructions
+    caption_text = (
+        "🔒 Paid Video\n\n"
+        "🎥 Price: ₹10 per video\n"
+        f"💳 Pay via UPI: {UPI_ID}\n\n"
+        "📌 Payment करने के बाद क्या करना है?\n\n"
+        "1️⃣ UPI से ₹10 payment करें\n"
+        "2️⃣ Payment complete होने के बाद\n"
+        "3️⃣ इसी chat में नीचे दिया हुआ message भेजें 👇\n\n"
+        f"/paid {video_id} TXN_ID\n\n"
+        "🧾 TXN_ID = Transaction / UTR Number\n\n"
+        "📌 Example:\n"
+        f"/paid {video_id} 456789123\n\n"
+        "⏳ Admin payment verify करेगा\n"
+        "🎥 Approval के बाद video भेजा जाएगा\n"
+        "⚠️ Video केवल एक बार मिलेगा\n"
+    )
+
     await update.message.reply_photo(
-        bio,
-        caption=(
-            "🔒 *Paid Video*\n\n"
-            "🎥 *Price:* ₹10 per video\n"
-            f"💳 *Pay via UPI:* {UPI_ID}\n\n"
-            "📌 *Payment करने के बाद क्या करना है?*\n\n"
-            "1️⃣ ऊपर दिए गए QR Code से ₹10 payment करें\n"
-            "2️⃣ Payment successful होने के बाद\n"
-            "3️⃣ इसी chat में नीचे दिया हुआ message भेजें 👇\n\n"
-            f"👉 `/paid {video_id} TXN_ID`\n\n"
-            "🧾 *TXN_ID / UTR नंबर क्या होता है?*\n"
-            "• Payment के बाद आपके UPI app में\n"
-            "  जो Transaction / Reference / UTR नंबर मिलता है\n"
-            "  वही TXN_ID होता है\n\n"
-            "📌 *Example:*\n"
-            "अगर आपका TXN_ID = `456789123`\n"
-            "तो message ऐसे भेजें:\n\n"
-            f"👉 `/paid {video_id} 456789123`\n\n"
-            "⏳ *उसके बाद क्या होगा?*\n"
-            "• Admin payment verify करेगा\n"
-            "• Verify होने के बाद video भेजा जाएगा\n"
-            "• Video केवल *एक बार* ही मिलेगा\n"
-            "• दोबारा देखने के लिए फिर से payment करना होगा\n\n"
-            "🙏 *धन्यवाद!*",
-        parse_mode="Markdown"
+        photo=bio,
+        caption=caption_text
     )
 
 # ---------------- PAID ----------------
