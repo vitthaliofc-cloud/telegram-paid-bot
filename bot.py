@@ -14,8 +14,6 @@ pending_approvals = {}  # user_id -> set(video_ids)
 
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
     if not context.args:
         await update.message.reply_text("❌ Video ID missing")
         return
@@ -33,16 +31,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     img.save(bio, "PNG")
     bio.seek(0)
 
-    # Send QR code + text instructions
+    # Send QR code + detailed Hindi instructions
     await update.message.reply_photo(
         bio,
         caption=(
-            f"🔒 Paid Video\n\n"
-            f"🎥 Price: ₹10 per video\n"
-            f"💳 Pay via UPI: {UPI_ID}\n\n"
-            f"Payment नंतर असा message पाठवा:\n"
-            f"/paid {video_id} TXN_ID"
-        )
+            "🔒 *Paid Video*\n\n"
+            "🎥 *Price:* ₹10 per video\n"
+            f"💳 *Pay via UPI:* {UPI_ID}\n\n"
+            "📌 *Payment करने के बाद क्या करना है?*\n\n"
+            "1️⃣ ऊपर दिए गए QR Code से ₹10 payment करें\n"
+            "2️⃣ Payment successful होने के बाद\n"
+            "3️⃣ इसी chat में नीचे दिया हुआ message भेजें 👇\n\n"
+            f"👉 `/paid {video_id} TXN_ID`\n\n"
+            "🧾 *TXN_ID / UTR नंबर क्या होता है?*\n"
+            "• Payment के बाद आपके UPI app में\n"
+            "  जो Transaction / Reference / UTR नंबर मिलता है\n"
+            "  वही TXN_ID होता है\n\n"
+            "📌 *Example:*\n"
+            "अगर आपका TXN_ID = `456789123`\n"
+            "तो message ऐसे भेजें:\n\n"
+            f"👉 `/paid {video_id} 456789123`\n\n"
+            "⏳ *उसके बाद क्या होगा?*\n"
+            "• Admin payment verify करेगा\n"
+            "• Verify होने के बाद video भेजा जाएगा\n"
+            "• Video केवल *एक बार* ही मिलेगा\n"
+            "• दोबारा देखने के लिए फिर से payment करना होगा\n\n"
+            "🙏 *धन्यवाद!*",
+        parse_mode="Markdown"
     )
 
 # ---------------- PAID ----------------
@@ -97,12 +112,14 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     pending_approvals[user_id].remove(video_id)
-    if len(pending_approvals[user_id]) == 0:
+    if not pending_approvals[user_id]:
         del pending_approvals[user_id]
 
     await context.bot.send_message(
         chat_id=user_id,
-        text=f"🎉 Payment confirmed! Video delivered. Next time you want to watch, you need to pay again."
+        text="🎉 Payment confirmed! Video delivered.\n\n"
+             "⚠️ Note: Video एक ही बार मिलेगा.\n"
+             "दोबारा देखने के लिए फिर से payment करना होगा."
     )
     await update.message.reply_text(f"✅ Video sent to user {user_id}")
 
