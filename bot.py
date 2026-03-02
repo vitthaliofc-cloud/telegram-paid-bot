@@ -134,5 +134,12 @@ app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("paid", paid))
 app.add_handler(CommandHandler("approve", approve))
 
+from telegram import Update
+
 print("🤖 QR Payment bot is running...")
-app.run_polling()
+
+app.run_polling(
+    allowed_updates=Update.ALL_TYPES,
+    drop_pending_updates=True,
+    close_loop=False
+)
