@@ -1,16 +1,20 @@
 import os
 import qrcode
 from io import BytesIO
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler,
+    ContextTypes, CallbackQueryHandler, MessageHandler, filters
+)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
-CHANNEL_ID = int(os.getenv("CHANNEL_ID"))  # -100XXXXXXXXXX
-UPI_ID = "mp0089@ybl"  # Fixed UPI ID
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+UPI_ID = "mp0089@ybl"
 
-# Keep track of pending approvals
-pending_approvals = {}  # user_id -> set(video_ids)
+# user_id -> {"video_id": str, "utr": str}
+pending_approvals = {}
+waiting_for_utr = {}  # user_id -> video_id
 
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -20,91 +24,90 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     video_id = context.args[0]
 
-    # Generate UPI QR code
     upi_link = f"upi://pay?pa={UPI_ID}&pn=Mangesh%20Kamble&am=10&cu=INR"
-    qr = qrcode.QRCode(box_size=10, border=2)
-    qr.add_data(upi_link)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
+    qr = qrcode.make(upi_link)
 
     bio = BytesIO()
     bio.name = "upi_qr.png"
-    img.save(bio, format="PNG")
+    qr.save(bio, format="PNG")
     bio.seek(0)
 
-    caption_text = (
-    "🔒 Paid Video\n\n"
-    "🎥 Price: ₹10 per video\n"
-    f"💳 Pay via UPI: {UPI_ID}\n\n"
+    keyboard = [
+        [InlineKeyboardButton("✅ I Paid", callback_data=f"paid_{video_id}")]
+    ]
 
-    "📌 Payment करने के बाद क्या करना है?\n\n"
-    "1️⃣ UPI से ₹10 payment करें\n"
-    "2️⃣ Payment complete होने के बाद\n"
-    "3️⃣ इसी chat में नीचे दिया हुआ message भेजें 👇\n\n"
-    f"👉 /paid {video_id} TXN_ID\n\n"
-
-    "🧾 TXN_ID क्या होता है?\n"
-    "• Payment करने के बाद आपको जो\n"
-    "  Transaction / Reference / UTR नंबर मिलता है\n"
-    "  वही TXN_ID होता है\n\n"
-
-    "📌 Example:\n"
-    "अगर आपका Transaction ID = 456789123\n"
-    "तो message ऐसे भेजें:\n\n"
-    f"👉 /paid {video_id} 456789123\n\n"
-
-    "⏳ उसके बाद:\n"
-    "• आपका payment verify हो जाएगा.\n"
-    "• Approval मिलने के बाद video भेजा जाएगा.\n"
-    "• Video केवल एक बार ही मिलेगा\n"
-    "• दोबारा देखने के लिए फिर से payment करना होगा\n\n"
-    "🙏 धन्यवाद!"
-    )
     await update.message.reply_photo(
         photo=bio,
-        caption=caption_text
+        caption=(
+            f"🎬 Video #{video_id}\n\n"
+            "💰 Price: ₹10\n"
+            f"💳 UPI: {UPI_ID}\n\n"
+            "👉 Payment करून 'I Paid' बटन क्लिक करा"
+        ),
+        reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ---------------- PAID ----------------
-async def paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 2:
-        await update.message.reply_text("❌ Use: /paid VIDEO_ID TXN_ID")
+# ---------------- BUTTON CLICK ----------------
+async def paid_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    video_id = query.data.split("_")[1]
+
+    waiting_for_utr[user_id] = video_id
+
+    await query.message.reply_text(
+        "📌 कृपया तुमचा UTR / TXN ID पाठवा\n\n"
+        "Example: 123456789"
+    )
+
+# ---------------- RECEIVE UTR ----------------
+async def receive_utr(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    text = update.message.text.strip()
+
+    if user_id not in waiting_for_utr:
         return
 
-    user_id = update.effective_user.id
-    video_id = context.args[0]
-    txn_id = context.args[1]
+    video_id = waiting_for_utr[user_id]
 
-    pending_approvals.setdefault(user_id, set()).add(video_id)
+    pending_approvals[user_id] = {
+        "video_id": video_id,
+        "utr": text
+    }
+
+    del waiting_for_utr[user_id]
 
     await context.bot.send_message(
         chat_id=ADMIN_ID,
         text=(
-            f"💰 New Payment Request\n\n"
-            f"👤 User ID: {user_id}\n"
-            f"🎥 Video ID: {video_id}\n"
-            f"💵 Amount: ₹10\n"
-            f"🧾 TXN: {txn_id}"
+            "💰 New Payment Request\n\n"
+            f"👤 User: {user_id}\n"
+            f"🎬 Video: {video_id}\n"
+            f"🧾 UTR: {text}\n\n"
+            f"Approve: /approve {user_id}"
         )
     )
 
-    await update.message.reply_text("✅ Request sent. Approval pending.")
+    await update.message.reply_text("✅ Request sent. Waiting for approval.")
 
 # ---------------- APPROVE ----------------
 async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
         return
 
-    if len(context.args) < 2:
-        await update.message.reply_text("❌ Use: /approve USER_ID VIDEO_ID")
+    if len(context.args) < 1:
+        await update.message.reply_text("❌ Use: /approve USER_ID")
         return
 
     user_id = int(context.args[0])
-    video_id = context.args[1]
 
-    if user_id not in pending_approvals or video_id not in pending_approvals[user_id]:
-        await update.message.reply_text("❌ No pending payment request for this video")
+    if user_id not in pending_approvals:
+        await update.message.reply_text("❌ No request found")
         return
+
+    video_id = pending_approvals[user_id]["video_id"]
 
     try:
         await context.bot.copy_message(
@@ -113,33 +116,25 @@ async def approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_id=int(video_id)
         )
     except Exception as e:
-        await update.message.reply_text(f"❌ Video send failed: {e}")
+        await update.message.reply_text(f"❌ Error: {e}")
         return
 
-    pending_approvals[user_id].remove(video_id)
-    if not pending_approvals[user_id]:
-        del pending_approvals[user_id]
+    del pending_approvals[user_id]
 
     await context.bot.send_message(
         chat_id=user_id,
-        text="🎉 Payment confirmed! Video delivered.\n\n"
-             "⚠️ Note: Video एक ही बार मिलेगा.\n"
-             "दोबारा देखने के लिए फिर से payment करना होगा."
+        text="🎉 Payment verified! Video delivered."
     )
-    await update.message.reply_text(f"✅ Video sent to user {user_id}")
+
+    await update.message.reply_text("✅ Approved & sent")
 
 # ---------------- BOT SETUP ----------------
 app = ApplicationBuilder().token(BOT_TOKEN).build()
+
 app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("paid", paid))
+app.add_handler(CallbackQueryHandler(paid_button, pattern="^paid_"))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receive_utr))
 app.add_handler(CommandHandler("approve", approve))
 
-from telegram import Update
-
-print("🤖 QR Payment bot is running...")
-
-app.run_polling(
-    allowed_updates=Update.ALL_TYPES,
-    drop_pending_updates=True,
-    close_loop=False
-)
+print("🤖 UTR Verification Bot Running...")
+app.run_polling()
