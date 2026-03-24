@@ -1,4 +1,3 @@
-print("🔥 Server started...")
 from flask import Flask, request, jsonify
 import requests, os
 
@@ -10,7 +9,11 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 CASHFREE_APP_ID = os.getenv("CASHFREE_APP_ID")
 CASHFREE_SECRET = os.getenv("CASHFREE_SECRET")
 
-# ✅ PAYMENT LINK
+@app.route("/")
+def home():
+    return "Server running ✅"
+
+# 🔥 CREATE PAYMENT LINK
 @app.route("/pay")
 def pay():
     user_id = request.args.get("user_id")
@@ -36,32 +39,25 @@ def pay():
 
     res = requests.post(url, json=data, headers=headers).json()
 
-    return jsonify({
-        "payment_link": res["payment_link"]
-    })
+    return jsonify({"payment_link": res["payment_link"]})
 
-# ✅ WEBHOOK (AUTO VERIFY)
+# 🔥 AUTO VERIFY
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
 
-    try:
-        if data["type"] == "PAYMENT_SUCCESS_WEBHOOK":
-            order = data["data"]["order"]
-            order_id = order["order_id"]
+    if data["type"] == "PAYMENT_SUCCESS_WEBHOOK":
+        order_id = data["data"]["order"]["order_id"]
 
-            user_id, video_id = order_id.split("_")
+        user_id, video_id = order_id.split("_")
 
-            # 🎬 SEND MOVIE
-            requests.post(
-                f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
-                data={
-                    "chat_id": user_id,
-                    "from_chat_id": CHANNEL_ID,
-                    "message_id": int(video_id)
-                }
-            )
-    except Exception as e:
-        print(e)
+        requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
+            data={
+                "chat_id": user_id,
+                "from_chat_id": CHANNEL_ID,
+                "message_id": int(video_id)
+            }
+        )
 
     return "OK"
