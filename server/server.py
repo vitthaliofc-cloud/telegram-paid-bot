@@ -1,3 +1,4 @@
+print("🔥 Server started...")
 from flask import Flask, request, jsonify
 import requests, os
 
