@@ -20,7 +20,7 @@ waiting_for_utr = {}  # user_id -> video_id
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ifimport requests
 
-SERVER = "https://yourproject.up.railway.app"  # Railway URL
+SERVER = "worker-production-7e26.up.railway.app"  # Railway URL
 
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
