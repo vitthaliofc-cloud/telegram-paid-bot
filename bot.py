@@ -18,34 +18,35 @@ waiting_for_utr = {}  # user_id -> video_id
 
 # ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ifimport requests
+
+SERVER = "https://yourproject.up.railway.app"  # Railway URL
+
+# ---------------- START ----------------
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+
     if not context.args:
         await update.message.reply_text("❌ Video ID missing")
         return
 
     video_id = context.args[0]
 
-    upi_link = f"upi://pay?pa={UPI_ID}&pn=Mangesh%20Kamble&am=10&cu=INR"
-    qr = qrcode.make(upi_link)
+    try:
+        res = requests.get(
+            f"{SERVER}/pay?user_id={user_id}&video_id={video_id}"
+        ).json()
 
-    bio = BytesIO()
-    bio.name = "upi_qr.png"
-    qr.save(bio, format="PNG")
-    bio.seek(0)
+        payment_link = res["payment_link"]
 
-    keyboard = [
-        [InlineKeyboardButton("✅ I Paid", callback_data=f"paid_{video_id}")]
-    ]
-
-    await update.message.reply_photo(
-        photo=bio,
-        caption=(
+        await update.message.reply_text(
             f"🎬 Video #{video_id}\n\n"
-            "💰 Price: ₹10\n"
-            f"💳 UPI: {UPI_ID}\n\n"
-            "👉 Payment करून 'I Paid' बटन क्लिक करा"
-        ),
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+            "💰 Price: ₹10\n\n"
+            f"👉 Pay here:\n{payment_link}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text("❌ Payment link error, try again")
 
 # ---------------- BUTTON CLICK ----------------
 async def paid_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
