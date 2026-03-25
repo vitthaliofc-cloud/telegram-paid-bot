@@ -56,7 +56,7 @@ def pay():
     if not payment_session_id or "None" in payment_session_id:
         return jsonify({"error": res})
 
-    payment_link = "https://payments.cashfree.com/pg/view/checkout?payment_session_id=" + payment_session_id
+    payment_link = "https://sandbox.cashfree.com/pg/view/checkout?payment_session_id=" + payment_session_id
 
     return jsonify({"payment_link": payment_link})
 
