@@ -31,6 +31,7 @@ def pay():
         "x-api-version": "2022-09-01"
     }
 
+    # ✅ unique order id (duplicate issue fix)
     order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
     data = {
@@ -52,7 +53,8 @@ def pay():
     print("SESSION ID:", payment_session_id)
 
     if payment_session_id:
-        payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
+        # ✅ FIXED payment link (IMPORTANT)
+        payment_link = f"https://payments.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
         return jsonify({"payment_link": payment_link})
     else:
         return jsonify({"error": res})
@@ -70,6 +72,7 @@ def webhook():
 
             user_id, video_id = order_id.split("_")
 
+            # 🎬 Send movie to user
             requests.post(
                 f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
                 data={
@@ -85,5 +88,4 @@ def webhook():
 
 
 if __name__ == "__main__":
-    print("🔥 Server started...")
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    print("🔥 Server
