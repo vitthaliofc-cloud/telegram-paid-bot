@@ -38,11 +38,20 @@ def pay():
     }
 
     res = requests.post(url, json=data, headers=headers)
+
+    print("STATUS:", res.status_code)
+    print("RESPONSE:", res.text)
+
     response = res.json()
 
-    print("Cashfree Response:", response)
+    # ✅ CHECK FIRST
+    if "payment_session_id" not in response:
+        return jsonify({
+            "error": "Payment session not created",
+            "full_response": response
+        })
 
-    session_id = response.get("payment_session_id")
+    session_id = response["payment_session_id"]
 
     payment_link = f"https://payments.cashfree.com/pg/view/checkout?payment_session_id={session_id}"
 
