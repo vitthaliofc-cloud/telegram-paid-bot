@@ -11,7 +11,6 @@ CASHFREE_SECRET = os.getenv("CASHFREE_SECRET")
 
 # ✅ Payment link endpoint
 @app.route("/pay")
-d@app.route("/pay")
 def pay():
     user_id = request.args.get("user_id")
     video_id = request.args.get("video_id")
