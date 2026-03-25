@@ -20,7 +20,7 @@ def pay():
     user_id = request.args.get("user_id")
     video_id = request.args.get("video_id")
 
-    url = "https://api.cashfree.com/pg/orders"
+    url = "https://sandbox.cashfree.com/pg/orders"
 
     headers = {
         "x-client-id": CASHFREE_APP_ID,
@@ -56,8 +56,7 @@ def pay():
 
     session_id = response["payment_session_id"]
 
-    payment_link = f"https://payments.cashfree.com/pg/view/checkout?payment_session_id={session_id}"
-
+    payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id=XXXX
     return jsonify({
         "payment_link": payment_link
     })
