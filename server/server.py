@@ -22,7 +22,7 @@ def pay():
     user_id = request.args.get("user_id")
     video_id = request.args.get("video_id")
 
-    url = "https://sandbox.cashfree.com/pg/orders"
+    url = "https://api.cashfree.com/pg/orders"
 
     headers = {
     "x-client-id": CASHFREE_APP_ID,
