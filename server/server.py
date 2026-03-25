@@ -24,18 +24,20 @@ def pay():
         "Content-Type": "application/json"
     }
 
-    data = {
-        "order_id": f"{user_id}_{video_id}",
-        "order_amount": 10.0,
-        "order_currency": "INR",
-        "customer_details": {
-            "customer_id": str(user_id),
-            "customer_phone": "9999999999"
-        },
-        "order_meta": {
-            "return_url": "https://t.me/Running_MoviesBot"
-        }
+    import time
+
+data = {
+    "order_id": f"{user_id}_{video_id}_{int(time.time())}",
+    "order_amount": 10.0,
+    "order_currency": "INR",
+    "customer_details": {
+        "customer_id": str(user_id),
+        "customer_phone": "9999999999"
+    },
+    "order_meta": {
+        "return_url": "https://t.me/Running_MoviesBot"
     }
+}
 
     res = requests.post(url, json=data, headers=headers)
 
