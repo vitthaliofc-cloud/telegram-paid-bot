@@ -48,10 +48,20 @@ def pay():
         print("STATUS:", response.status_code)
         print("TEXT:", response.text)
 
-        res = response.json()
+        if response.status_code != 200:
+    return jsonify({
+        "error": "Cashfree API failed",
+        "status": response.status_code,
+        "response": response.text
+    })
 
-        if "payment_session_id" not in res:
-            return jsonify({"error": res})
+res = response.json()
+
+if "payment_session_id" not in res:
+    return jsonify({
+        "error": "Session not created",
+        "response": res
+    })
 
         payment_session_id = res["payment_session_id"]
 
