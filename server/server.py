@@ -11,6 +11,7 @@ CASHFREE_SECRET = os.getenv("CASHFREE_SECRET")
 
 # ✅ Payment link endpoint
 @app.route("/pay")
+d@app.route("/pay")
 def pay():
     user_id = request.args.get("user_id")
     video_id = request.args.get("video_id")
@@ -18,11 +19,38 @@ def pay():
     url = "https://api.cashfree.com/pg/orders"
 
     headers = {
-    "x-client-id": CASHFREE_APP_ID,
-    "x-client-secret": CASHFREE_SECRET,
-    "x-api-version": "2022-09-01",
-    "Content-Type": "application/json"
-}
+        "x-client-id": CASHFREE_APP_ID,
+        "x-client-secret": CASHFREE_SECRET,
+        "x-api-version": "2022-09-01",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "order_id": f"{user_id}_{video_id}",
+        "order_amount": 10.0,
+        "order_currency": "INR",
+        "customer_details": {
+            "customer_id": str(user_id),
+            "customer_phone": "9999999999"
+        },
+        "order_meta": {
+            "return_url": "https://t.me/Running_MoviesBot"
+        }
+    }
+
+    res = requests.post(url, json=data, headers=headers)
+    response = res.json()
+
+    print("Cashfree Response:", response)
+
+    # ✅ IMPORTANT FIX
+    session_id = response.get("payment_session_id")
+
+    payment_link = f"https://payments.cashfree.com/order/#/{session_id}"
+
+    return jsonify({
+        "payment_link": payment_link
+    })
 
     data = {
         "order_id": f"{user_id}_{video_id}",
