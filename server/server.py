@@ -22,45 +22,45 @@ def pay():
     user_id = request.args.get("user_id")
     video_id = request.args.get("video_id")
 
-    url = "https://api.cashfree.com/pg/orders"
+    url = "https://sandbox.cashfree.com/pg/orders"
 
     headers = {
-    "x-client-id": CASHFREE_APP_ID,
-    "x-client-secret": CASHFREE_SECRET,
-    "accept": "application/json",
-    "content-type": "application/json",
-    "x-api-version": "2022-09-01"
-}
+        "x-client-id": CASHFREE_APP_ID,
+        "x-client-secret": CASHFREE_SECRET,
+        "Content-Type": "application/json",
+        "x-api-version": "2022-09-01"
+    }
 
     order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
     data = {
         "order_id": order_id,
-        "order_amount": 10,
+        "order_amount": 10.0,
         "order_currency": "INR",
         "customer_details": {
-            "customer_id": user_id,
+            "customer_id": str(user_id),
             "customer_phone": "9999999999"
         }
     }
 
-    res = requests.post(url, json=data, headers=headers).json()
-    print("FULL RESPONSE:", res)
+    try:
+        response = requests.post(url, json=data, headers=headers)
+        print("STATUS:", response.status_code)
+        print("TEXT:", response.text)
 
-    payment_session_id = res.get("payment_session_id")
+        res = response.json()
 
-    if payment_session_id:
-        payment_session_id = str(payment_session_id).strip()
+        if "payment_session_id" not in res:
+            return jsonify({"error": res})
 
-    print("SESSION:", payment_session_id)
+        payment_session_id = res["payment_session_id"]
 
-    if not payment_session_id or "None" in payment_session_id:
-        return jsonify({"error": res})
+        payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
 
-    payment_link = "https://sandbox.cashfree.com/pg/view/checkout?payment_session_id=" + payment_session_id
+        return jsonify({"payment_link": payment_link})
 
-    return jsonify({"payment_link": payment_link})
-
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
