@@ -44,26 +44,18 @@ def pay():
     }
 
     res = requests.post(url, json=data, headers=headers).json()
-
-    # 🔍 DEBUG PRINT
     print("FULL RESPONSE:", res)
 
     payment_session_id = res.get("payment_session_id")
 
-    # 🔥 CLEAN SESSION ID
     if payment_session_id:
         payment_session_id = str(payment_session_id).strip()
 
-    print("CLEAN SESSION ID:", payment_session_id)
+    print("SESSION:", payment_session_id)
 
-    # ❌ अगर invalid असेल तर error return
     if not payment_session_id or "None" in payment_session_id:
-        return jsonify({
-            "error": "Invalid session id",
-            "full_response": res
-        })
+        return jsonify({"error": res})
 
-    # ✅ SAFE LINK GENERATION (NO CORRUPTION)
     payment_link = "https://payments.cashfree.com/pg/view/checkout?payment_session_id=" + payment_session_id
 
     return jsonify({"payment_link": payment_link})
@@ -72,7 +64,7 @@ def pay():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
-    print("Webhook Data:", data)
+    print("Webhook:", data)
 
     try:
         if data.get("type") in ["PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_SUCCESS"]:
@@ -81,7 +73,6 @@ def webhook():
 
             user_id, video_id = order_id.split("_")
 
-            # 🎬 Send Movie
             requests.post(
                 f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
                 data={
@@ -90,3 +81,11 @@ def webhook():
                     "message_id": int(video_id)
                 }
             )
+    except Exception as e:
+        print("Webhook Error:", e)
+
+    return "OK"
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
