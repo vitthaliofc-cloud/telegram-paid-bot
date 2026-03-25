@@ -56,7 +56,7 @@ def pay():
 
     session_id = response["payment_session_id"]
 
-    payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id=XXXX
+    payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
     return jsonify({
         "payment_link": payment_link
     })
