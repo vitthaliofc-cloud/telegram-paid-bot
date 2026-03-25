@@ -32,7 +32,7 @@ def pay():
             "customer_phone": "9999999999"
         },
         "order_meta": {
-            "return_url": "https://t.me/YOUR_BOT_USERNAME"
+            "return_url": "https://t.me/@Running_MoviesBot"
         }
     }
 
