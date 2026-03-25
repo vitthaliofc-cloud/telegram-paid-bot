@@ -31,7 +31,6 @@ def pay():
         "x-api-version": "2022-09-01"
     }
 
-    # ✅ unique order id (duplicate issue fix)
     order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
     data = {
@@ -46,14 +45,9 @@ def pay():
 
     res = requests.post(url, json=data, headers=headers).json()
 
-    print("FULL RESPONSE:", res)
-
     payment_session_id = res.get("payment_session_id")
 
-    print("SESSION ID:", payment_session_id)
-
     if payment_session_id:
-        # ✅ FIXED payment link (IMPORTANT)
         payment_link = f"https://payments.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
         return jsonify({"payment_link": payment_link})
     else:
@@ -63,7 +57,6 @@ def pay():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
-    print("Webhook Data:", data)
 
     try:
         if data.get("type") in ["PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_SUCCESS"]:
@@ -72,7 +65,6 @@ def webhook():
 
             user_id, video_id = order_id.split("_")
 
-            # 🎬 Send movie to user
             requests.post(
                 f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
                 data={
@@ -82,10 +74,10 @@ def webhook():
                 }
             )
     except Exception as e:
-        print("Webhook Error:", e)
+        print(e)
 
     return "OK"
 
 
 if __name__ == "__main__":
-    print("🔥 Server
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
