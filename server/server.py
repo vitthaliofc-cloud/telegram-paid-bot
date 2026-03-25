@@ -15,7 +15,7 @@ def pay():
     user_id = request.args.get("user_id")
     video_id = request.args.get("video_id")
 
-    url = "https://sandbox.cashfree.com/pg/orders"  # Sandbox / Live
+    url = "https://api.cashfree.com/pg/orders"
 
     headers = {
         "x-client-id": CASHFREE_APP_ID,
@@ -30,13 +30,20 @@ def pay():
         "customer_details": {
             "customer_id": str(user_id),
             "customer_phone": "9999999999"
+        },
+        "order_meta": {
+            "return_url": "https://t.me/YOUR_BOT_USERNAME"
         }
     }
 
-    res = requests.post(url, json=data, headers=headers).json()
+    res = requests.post(url, json=data, headers=headers)
+
+    print("Cashfree Response:", res.text)
+
+    response = res.json()
 
     return jsonify({
-        "payment_link": res.get("payment_link")
+        "payment_link": response.get("payment_link")
     })
 
 # ✅ Webhook for auto verify
