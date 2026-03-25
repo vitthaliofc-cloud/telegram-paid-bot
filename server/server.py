@@ -42,15 +42,13 @@ def pay():
 
     print("Cashfree Response:", response)
 
-    # ✅ IMPORTANT FIX
     session_id = response.get("payment_session_id")
 
-payment_link = f"https://payments.cashfree.com/pg/view/checkout?payment_session_id={session_id}"
+    payment_link = f"https://payments.cashfree.com/pg/view/checkout?payment_session_id={session_id}"
 
-return jsonify({
-    "payment_link": payment_link
-})
-
+    return jsonify({
+        "payment_link": payment_link
+    })
     data = {
         "order_id": f"{user_id}_{video_id}",
         "order_amount": 10,
