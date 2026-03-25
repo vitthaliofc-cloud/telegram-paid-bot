@@ -25,11 +25,12 @@ def pay():
     url = "https://sandbox.cashfree.com/pg/orders"
 
     headers = {
-        "x-client-id": CASHFREE_APP_ID,
-        "x-client-secret": CASHFREE_SECRET,
-        "Content-Type": "application/json",
-        "x-api-version": "2022-09-01"
-    }
+    "x-client-id": CASHFREE_APP_ID,
+    "x-client-secret": CASHFREE_SECRET,
+    "accept": "application/json",
+    "content-type": "application/json",
+    "x-api-version": "2023-08-01"
+}
 
     order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
