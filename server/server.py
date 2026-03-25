@@ -67,7 +67,7 @@ def webhook():
     data = request.json
 
     try:
-        if data["type"] == "PAYMENT_SUCCESS_WEBHOOK":
+        if data.get("type") in ["PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_SUCCESS"]:":
             order = data["data"]["order"]
             order_id = order["order_id"]
 
