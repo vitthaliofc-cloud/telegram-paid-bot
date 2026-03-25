@@ -18,10 +18,11 @@ def pay():
     url = "https://api.cashfree.com/pg/orders"
 
     headers = {
-        "x-client-id": CASHFREE_APP_ID,
-        "x-client-secret": CASHFREE_SECRET,
-        "Content-Type": "application/json"
-    }
+    "x-client-id": CASHFREE_APP_ID,
+    "x-client-secret": CASHFREE_SECRET,
+    "x-api-version": "2022-09-01",
+    "Content-Type": "application/json"
+}
 
     data = {
         "order_id": f"{user_id}_{video_id}",
