@@ -11,9 +11,11 @@ CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 CASHFREE_APP_ID = os.getenv("CASHFREE_APP_ID")
 CASHFREE_SECRET = os.getenv("CASHFREE_SECRET")
 
+
 @app.route("/")
 def home():
     return "Server running"
+
 
 @app.route("/pay")
 def pay():
@@ -29,26 +31,32 @@ def pay():
         "x-api-version": "2022-09-01"
     }
 
-    import time
     order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
-import time
+    data = {
+        "order_id": order_id,
+        "order_amount": 10,
+        "order_currency": "INR",
+        "customer_details": {
+            "customer_id": user_id,
+            "customer_phone": "9999999999"
+        }
+    }
 
-order_id = f"{user_id}_{video_id}_{int(time.time())}"
+    res = requests.post(url, json=data, headers=headers).json()
 
-res = requests.post(url, json=data, headers=headers).json()
+    print("FULL RESPONSE:", res)
 
-print("FULL RESPONSE:", res)
+    payment_session_id = res.get("payment_session_id")
 
-payment_session_id = res.get("payment_session_id")
+    print("SESSION ID:", payment_session_id)
 
-print("SESSION ID:", payment_session_id)
+    if payment_session_id:
+        payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
+        return jsonify({"payment_link": payment_link})
+    else:
+        return jsonify({"error": res})
 
-if payment_session_id:
-    payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
-    return jsonify({"payment_link": payment_link})
-else:
-    return jsonify({"error": res})
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -62,7 +70,6 @@ def webhook():
 
             user_id, video_id = order_id.split("_")
 
-            # 🎬 Send Movie
             requests.post(
                 f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
                 data={
@@ -75,6 +82,7 @@ def webhook():
         print("Webhook Error:", e)
 
     return "OK"
+
 
 if __name__ == "__main__":
     print("🔥 Server started...")
