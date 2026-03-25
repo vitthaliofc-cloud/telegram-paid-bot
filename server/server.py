@@ -32,29 +32,23 @@ def pay():
     import time
     order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
-    data = {
-        "order_id": order_id,
-        "order_amount": 10,
-        "order_currency": "INR",
-        "customer_details": {
-            "customer_id": user_id,
-            "customer_phone": "9999999999"
-        }
-    }
+import time
 
-    res = requests.post(url, json=data, headers=headers).json()
-    print("Cashfree Response:", res)
+order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
-    payment_session_id = res.get("payment_session_id")
+res = requests.post(url, json=data, headers=headers).json()
 
-    if payment_session_id:
-        payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
-        return jsonify({"payment_link": payment_link})
-    else:
-        return jsonify({
-            "error": "Payment session not created",
-            "full_response": res
-        })
+print("FULL RESPONSE:", res)
+
+payment_session_id = res.get("payment_session_id")
+
+print("SESSION ID:", payment_session_id)
+
+if payment_session_id:
+    payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
+    return jsonify({"payment_link": payment_link})
+else:
+    return jsonify({"error": res})
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
