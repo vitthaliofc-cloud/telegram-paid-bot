@@ -65,14 +65,16 @@ def pay():
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.json
+    print("Webhook Data:", data)
 
     try:
-        if data.get("type") in ["PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_SUCCESS"]:":
+        if data.get("type") in ["PAYMENT_SUCCESS_WEBHOOK", "PAYMENT_SUCCESS"]:
             order = data["data"]["order"]
             order_id = order["order_id"]
 
-            user_id, video_id, _ = order_id.split("_")
+            user_id, video_id = order_id.split("_")
 
+            # 🎬 Send Movie
             requests.post(
                 f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
                 data={
@@ -82,7 +84,7 @@ def webhook():
                 }
             )
     except Exception as e:
-        print("Webhook error:", e)
+        print("Webhook Error:", e)
 
     return "OK"
 
