@@ -5,16 +5,16 @@ from telegram import Bot
 
 # 🔑 ENV VARIABLES
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-APP_ID = os.getenv("CASHFREE_APP_ID")
-SECRET_KEY = os.getenv("CASHFREE_SECRET_KEY")
+CASHFREE_APP_ID = os.getenv("CASHFREE_APP_ID")
+CASHFREE_SECRET = os.getenv("CASHFREE_SECRET_KEY")
 
 bot = Bot(token=BOT_TOKEN)
 app = Flask(__name__)
 
-# 🧠 Temporary DB (replace with real DB later)
+# 🧠 Temporary DB
 users_orders = {}
 
-# 🎬 Movie links (example)
+# 🎬 Movie links
 movies = {
     "17": "https://yourdomain.com/movie17.mp4"
 }
@@ -46,28 +46,42 @@ def create_order(order_id, amount, user_id):
 
     print("📤 Sending request to Cashfree...")
 
-    res = requests.post(url, json=data, headers=headers)
+    try:
+        res = requests.post(url, json=data, headers=headers)
 
-    print("✅ STATUS:", res.status_code)
-    print("✅ RESPONSE:", res.text)
+        print("✅ STATUS:", res.status_code)
+        print("✅ RESPONSE:", res.text)
 
-    return res.json()
+        return res.json()
 
-# 🔹 Telegram Webhook (receive messages)
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+    except Exception as e:
+        print("❌ Request error:", e)
+        return {}
+
+# 🔹 Telegram Webhook (MAIN FIX)
+@app.route("/telegram", methods=["POST"])
 def telegram_webhook():
-    data = request.json
+    data = request.get_json()
+
+    print("📩 Incoming:", data)
 
     if "message" in data:
-        chat_id = data["message"]["chat"]["id"]
-        text = data["message"].get("text", "")
+        message = data["message"]
+        text = message.get("text", "")
+        chat_id = message["chat"]["id"]
+
+        print("User text:", text)
 
         if text.startswith("/start"):
-            try:
-                movie_id = text.split(" ")[1]
-            except:
+            print("✅ Start command detected")
+
+            parts = text.split(" ")
+
+            if len(parts) < 2:
                 bot.send_message(chat_id, "❌ Use: /start 17")
                 return "ok"
+
+            movie_id = parts[1]
 
             order_id = f"order_{chat_id}_{movie_id}"
 
@@ -78,20 +92,27 @@ def telegram_webhook():
 
             order = create_order(order_id, 10, chat_id)
 
-            if "payment_link" in order:
-                bot.send_message(chat_id, f"💳 Pay ₹10:\n{order['payment_link']}")
+            print("ORDER RESPONSE:", order)
+
+            # 🔥 FIX: payment_link safe access
+            payment_link = order.get("payment_link")
+
+            if payment_link:
+                bot.send_message(chat_id, f"💳 Pay ₹10:\n{payment_link}")
             else:
-                bot.send_message(chat_id, f"❌ Error: {order}")
+                bot.send_message(chat_id, "⚠️ Payment server error, try later")
 
     return "ok"
 
 # 🔔 Cashfree Webhook
 @app.route("/webhook", methods=["POST"])
 def cashfree_webhook():
-    data = request.json
+    data = request.get_json()
+
+    print("💰 Cashfree webhook:", data)
 
     try:
-        if data["type"] == "PAYMENT_SUCCESS":
+        if data.get("type") == "PAYMENT_SUCCESS":
             order_id = data["data"]["order"]["order_id"]
 
             if order_id in users_orders:
@@ -103,7 +124,7 @@ def cashfree_webhook():
                 bot.send_message(chat_id, f"🎬 Here is your movie:\n{movie_link}")
 
     except Exception as e:
-        print("Webhook error:", e)
+        print("❌ Webhook error:", e)
 
     return "OK"
 
@@ -112,5 +133,6 @@ def cashfree_webhook():
 def home():
     return "Bot Running 🚀"
 
+# 🚀 Run
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
