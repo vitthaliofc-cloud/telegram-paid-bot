@@ -32,14 +32,14 @@ def create_order(order_id, amount, user_id):
 }
 
     data = {
-        "order_id": order_id,
-        "order_amount": amount,
-        "order_currency": "INR",
-        "customer_details": {
-    "customer_id": str(user_id),
-    "customer_phone": "9999999999",
-    "customer_email": "test@gmail.com"
-}
+    "order_id": order_id,
+    "order_amount": 10.0,
+    "order_currency": "INR",
+    "customer_details": {
+        "customer_id": str(user_id),
+        "customer_phone": "9999999999",
+        "customer_email": "test@gmail.com"
+    }
     }
 
     res = requests.post(url, json=data, headers=headers)
