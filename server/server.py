@@ -36,9 +36,10 @@ def create_order(order_id, amount, user_id):
         "order_amount": amount,
         "order_currency": "INR",
         "customer_details": {
-            "customer_id": str(user_id),
-            "customer_phone": "9999999999"
-        }
+    "customer_id": str(user_id),
+    "customer_phone": "9999999999",
+    "customer_email": "test@gmail.com"
+}
     }
 
     res = requests.post(url, json=data, headers=headers)
