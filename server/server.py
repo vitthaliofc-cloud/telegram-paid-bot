@@ -47,10 +47,24 @@ def pay():
 
         response = requests.post(url, json=data, headers=headers)
 
-        return jsonify({
-            "status_code": response.status_code,
-            "response": response.text
-        })
+        # 🔥 IMPORTANT
+        if response.status_code != 200:
+            return jsonify({"error": response.text})
+
+        res = response.json()
+
+        payment_session_id = res.get("payment_session_id")
+
+        if not payment_session_id:
+            return jsonify({"error": "Session ID missing", "res": res})
+
+        # ✅ CORRECT LINK
+        payment_link = f"https://sandbox.cashfree.com/pg/checkout?payment_session_id={payment_session_id}"
+
+        return jsonify({"payment_link": payment_link})
+
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
     except Exception as e:
         return jsonify({"error": str(e)})
