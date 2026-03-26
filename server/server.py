@@ -24,11 +24,12 @@ def create_order(order_id, amount, user_id):
     url = "https://api.cashfree.com/pg/orders"
 
     headers = {
-        "x-client-id": APP_ID,
-        "x-client-secret": SECRET_KEY,
-        "Content-Type": "application/json",
-        "x-api-version": "2022-09-01"
-    }
+    "x-client-id": CASHFREE_APP_ID,
+    "x-client-secret": CASHFREE_SECRET,
+    "accept": "application/json",
+    "content-type": "application/json",
+    "x-api-version": "2023-08-01"
+}
 
     data = {
         "order_id": order_id,
