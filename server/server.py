@@ -28,9 +28,7 @@ def pay():
         headers = {
             "x-client-id": CASHFREE_APP_ID,
             "x-client-secret": CASHFREE_SECRET,
-            "accept": "application/json",
-            "content-type": "application/json",
-            "x-api-version": "2023-08-01"
+            "Content-Type": "application/json"
         }
 
         order_id = f"{user_id}_{video_id}_{int(time.time())}"
@@ -59,6 +57,8 @@ def pay():
 
         if not payment_session_id:
             return jsonify({"error": "Session ID missing", "res": res})
+
+        payment_session_id = payment_session_id.strip()
 
         payment_link = f"https://sandbox.cashfree.com/pg/checkout?payment_session_id={payment_session_id}"
 
