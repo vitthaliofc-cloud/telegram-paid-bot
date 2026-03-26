@@ -26,12 +26,12 @@ def pay():
         url = "https://sandbox.cashfree.com/pg/orders"
 
         headers = {
-    "x-client-id": CASHFREE_APP_ID,
-    "x-client-secret": CASHFREE_SECRET,
-    "accept": "application/json",
-    "content-type": "application/json",
-    "x-api-version": "2023-08-01"
-}
+            "x-client-id": CASHFREE_APP_ID,
+            "x-client-secret": CASHFREE_SECRET,
+            "accept": "application/json",
+            "content-type": "application/json",
+            "x-api-version": "2023-08-01"
+        }
 
         order_id = f"{user_id}_{video_id}_{int(time.time())}"
 
@@ -60,6 +60,8 @@ def pay():
         if not payment_session_id:
             return jsonify({"error": "Session ID missing", "res": res})
 
+        # 🔥 FINAL FIX (clean session id)
+        payment_session_id = payment_session_id.split("payment")[0]
         payment_session_id = payment_session_id.strip()
 
         payment_link = f"https://sandbox.cashfree.com/pg/checkout?payment_session_id={payment_session_id}"
@@ -68,6 +70,7 @@ def pay():
 
     except Exception as e:
         return jsonify({"error": str(e)})
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
