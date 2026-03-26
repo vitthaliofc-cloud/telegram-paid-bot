@@ -57,8 +57,7 @@ def pay():
 
         payment_session_id = res["payment_session_id"]
 
-        payment_link = f"https://sandbox.cashfree.com/pg/view/checkout?payment_session_id={payment_session_id}"
-
+        payment_link = f"https://sandbox.cashfree.com/pg/checkout?payment_session_id={payment_session_id}"
         return jsonify({"payment_link": payment_link})
 
     except Exception as e:
