@@ -19,49 +19,41 @@ def home():
 
 @app.route("/pay")
 def pay():
-    user_id = request.args.get("user_id")
-    video_id = request.args.get("video_id")
-
-    url = "https://sandbox.cashfree.com/pg/orders"
-
-    headers = {
-        "x-client-id": CASHFREE_APP_ID,
-        "x-client-secret": CASHFREE_SECRET,
-        "Content-Type": "application/json",
-        "x-api-version": "2023-08-01"
-    }
-
-    order_id = f"{user_id}_{video_id}_{int(time.time())}"
-
-    data = {
-        "order_id": order_id,
-        "order_amount": 10.0,
-        "order_currency": "INR",
-        "customer_details": {
-            "customer_id": str(user_id),
-            "customer_phone": "9999999999"
-        }
-    }
-
     try:
+        user_id = request.args.get("user_id")
+        video_id = request.args.get("video_id")
+
+        url = "https://sandbox.cashfree.com/pg/orders"
+
+        headers = {
+            "x-client-id": CASHFREE_APP_ID,
+            "x-client-secret": CASHFREE_SECRET,
+            "accept": "application/json",
+            "content-type": "application/json",
+            "x-api-version": "2023-08-01"
+        }
+
+        order_id = f"{user_id}_{video_id}_{int(time.time())}"
+
+        data = {
+            "order_id": order_id,
+            "order_amount": 10.0,
+            "order_currency": "INR",
+            "customer_details": {
+                "customer_id": str(user_id),
+                "customer_phone": "9999999999"
+            }
+        }
+
         response = requests.post(url, json=data, headers=headers)
-        print("STATUS:", response.status_code)
-        print("TEXT:", response.text)
 
-        if response.status_code != 200:
-    return jsonify({
-        "error": "Cashfree API failed",
-        "status": response.status_code,
-        "response": response.text
-    })
+        return jsonify({
+            "status_code": response.status_code,
+            "response": response.text
+        })
 
-res = response.json()
-
-if "payment_session_id" not in res:
-    return jsonify({
-        "error": "Session not created",
-        "response": res
-    })
+    except Exception as e:
+        return jsonify({"error": str(e)})
 
         payment_session_id = res["payment_session_id"]
 
