@@ -1,70 +1,95 @@
 import os
 import requests
+import threading
 from flask import Flask, request
 
-# 🔑 ENV VARIABLES
+app = Flask(__name__)
+
+# ENV VARIABLES
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CASHFREE_APP_ID = os.getenv("CASHFREE_APP_ID")
 CASHFREE_SECRET_KEY = os.getenv("CASHFREE_SECRET_KEY")
 
-app = Flask(__name__)
-
-print("🚀 Server started")
-
-# 🧠 Temporary DB
+# STORE ORDERS
 users_orders = {}
 
-# 🎬 Movie links
-movies = {
-    "17": "https://yourdomain.com/movie17.mp4"
-}
-
-# 📩 Send message to Telegram
+# ✅ SEND MESSAGE TO TELEGRAM
 def send_message(chat_id, text):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     try:
-        requests.post(url, json={
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+        res = requests.post(url, json={
             "chat_id": chat_id,
             "text": text
-        })
+        }, timeout=10)
+
+        print("📤 Telegram response:", res.text)
+
     except Exception as e:
-        print("Telegram send error:", e)
+        print("❌ Telegram send error:", e)
 
-# 💳 Create Cashfree Order
-def create_order(order_id, amount, user_id):
-    print("🔥 create_order function called")
 
-    url = "https://api.cashfree.com/pg/orders"
-
-    headers = {
-        "x-client-id": CASHFREE_APP_ID,
-        "x-client-secret": CASHFREE_SECRET_KEY,
-        "accept": "application/json",
-        "content-type": "application/json",
-        "x-api-version": "2023-08-01"
-    }
-
-    data = {
-        "order_id": order_id,
-        "order_amount": amount,
-        "order_currency": "INR",
-        "customer_details": {
-            "customer_id": str(user_id),
-            "customer_phone": "9999999999",
-            "customer_email": "test@gmail.com"
-        }
-    }
-
+# ✅ CREATE CASHFREE ORDER
+def create_order(order_id, amount, chat_id):
     try:
+        print("🔥 create_order called")
+
+        url = "https://api.cashfree.com/pg/orders"
+
+        headers = {
+            "x-client-id": CASHFREE_APP_ID,
+            "x-client-secret": CASHFREE_SECRET_KEY,
+            "Content-Type": "application/json",
+            "x-api-version": "2022-09-01"
+        }
+
+        data = {
+            "order_id": order_id,
+            "order_amount": amount,
+            "order_currency": "INR",
+            "customer_details": {
+                "customer_id": str(chat_id),
+                "customer_phone": "9999999999"
+            }
+        }
+
         res = requests.post(url, json=data, headers=headers, timeout=10)
-        print("✅ STATUS:", res.status_code)
-        print("✅ RESPONSE:", res.text)
+        print("💰 Cashfree response:", res.text)
+
         return res.json()
+
     except Exception as e:
-        print("Cashfree error:", e)
+        print("❌ create_order error:", e)
         return {}
 
-# 🤖 Telegram Webhook
+
+# ✅ BACKGROUND PROCESS
+def process_order(chat_id, movie_id):
+    try:
+        print("🔥 process_order running")
+
+        order_id = f"order_{chat_id}_{movie_id}"
+
+        users_orders[order_id] = {
+            "chat_id": chat_id,
+            "movie_id": movie_id
+        }
+
+        order = create_order(order_id, 10, chat_id)
+
+        print("ORDER:", order)
+
+        if "payment_session_id" in order:
+            link = f"https://payments.cashfree.com/order/#/{order['payment_session_id']}"
+            send_message(chat_id, f"💳 Pay ₹10:\n{link}")
+        else:
+            send_message(chat_id, "❌ Payment error")
+
+    except Exception as e:
+        print("❌ process_order error:", e)
+
+
+# ✅ TELEGRAM WEBHOOK
 @app.route("/telegram", methods=["POST"])
 def telegram_webhook():
     try:
@@ -72,9 +97,6 @@ def telegram_webhook():
 
         data = request.get_json(force=True)
         print("📩 Incoming:", data)
-
-        if not data:
-            return "ok"
 
         if "message" in data:
             message = data["message"]
@@ -89,21 +111,15 @@ def telegram_webhook():
                     return "ok"
 
                 movie_id = parts[1]
-                order_id = f"order_{chat_id}_{movie_id}"
 
-                users_orders[order_id] = {
-                    "chat_id": chat_id,
-                    "movie_id": movie_id
-                }
+                # 🚀 THREAD START
+                threading.Thread(
+                    target=process_order,
+                    args=(chat_id, movie_id)
+                ).start()
 
-                order = create_order(order_id, 10, chat_id)
-                print("ORDER:", order)
-
-                if "payment_session_id" in order:
-                    link = f"https://payments.cashfree.com/order/#/{order['payment_session_id']}"
-                    send_message(chat_id, f"💳 Pay ₹10:\n{link}")
-                else:
-                    send_message(chat_id, "❌ Payment error")
+                # ⚡ INSTANT RESPONSE
+                return "ok"
 
         return "ok"
 
@@ -111,36 +127,15 @@ def telegram_webhook():
         print("❌ WEBHOOK ERROR:", e)
         return "ok"
 
-# 🔔 Cashfree Webhook (Payment Success)
-@app.route("/webhook", methods=["POST"])
-def cashfree_webhook():
-    data = request.get_json()
 
-    print("💰 Cashfree Webhook:", data)
-
-    try:
-        if data["type"] == "PAYMENT_SUCCESS":
-            order_id = data["data"]["order"]["order_id"]
-
-            if order_id in users_orders:
-                chat_id = users_orders[order_id]["chat_id"]
-                movie_id = users_orders[order_id]["movie_id"]
-
-                movie_link = movies.get(movie_id, "❌ Movie not found")
-
-                send_message(chat_id, f"🎬 Here is your movie:\n{movie_link}")
-
-    except Exception as e:
-        print("Webhook error:", e)
-
-    return "OK"
-
-# 🌐 Home
+# ✅ HOME ROUTE (TEST)
 @app.route("/")
 def home():
     return "Bot Running 🚀"
 
-# 🚀 Run
+
+# ✅ RUN SERVER
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-app.run(host="0.0.0.0", port=port)
+    print("🚀 Server started on port", port)
+    app.run(host="0.0.0.0", port=port)
