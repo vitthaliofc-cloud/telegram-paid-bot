@@ -67,41 +67,49 @@ def create_order(order_id, amount, user_id):
 # 🤖 Telegram Webhook
 @app.route("/telegram", methods=["POST"])
 def telegram_webhook():
-    data = request.get_json()
+    try:
+        print("🔥 TELEGRAM HIT")
 
-    print("📩 Incoming:", data)
+        data = request.get_json(force=True)
+        print("📩 Incoming:", data)
 
-    if "message" in data:
-        message = data["message"]
-        text = message.get("text", "")
-        chat_id = message["chat"]["id"]
+        if not data:
+            return "ok"
 
-        if text.startswith("/start"):
-            try:
-                movie_id = text.split(" ")[1]
-            except:
-                send_message(chat_id, "❌ Use: /start 17")
-                return "ok"
+        if "message" in data:
+            message = data["message"]
+            text = message.get("text", "")
+            chat_id = message["chat"]["id"]
 
-            order_id = f"order_{chat_id}_{movie_id}"
+            if text.startswith("/start"):
+                parts = text.split(" ")
 
-            users_orders[order_id] = {
-                "chat_id": chat_id,
-                "movie_id": movie_id
-            }
+                if len(parts) < 2:
+                    send_message(chat_id, "❌ Use: /start 17")
+                    return "ok"
 
-            order = create_order(order_id, 10, chat_id)
+                movie_id = parts[1]
+                order_id = f"order_{chat_id}_{movie_id}"
 
-            print("ORDER:", order)
+                users_orders[order_id] = {
+                    "chat_id": chat_id,
+                    "movie_id": movie_id
+                }
 
-            # ✅ FIX: payment_session_id वापरून link बनवतो
-            if "payment_session_id" in order:
-                payment_link = f"https://payments.cashfree.com/order/#/{order['payment_session_id']}"
-                send_message(chat_id, f"💳 Pay ₹10:\n{payment_link}")
-            else:
-                send_message(chat_id, f"❌ Payment error:\n{order}")
+                order = create_order(order_id, 10, chat_id)
+                print("ORDER:", order)
 
-    return "ok"
+                if "payment_session_id" in order:
+                    link = f"https://payments.cashfree.com/order/#/{order['payment_session_id']}"
+                    send_message(chat_id, f"💳 Pay ₹10:\n{link}")
+                else:
+                    send_message(chat_id, "❌ Payment error")
+
+        return "ok"
+
+    except Exception as e:
+        print("❌ WEBHOOK ERROR:", e)
+        return "ok"
 
 # 🔔 Cashfree Webhook (Payment Success)
 @app.route("/webhook", methods=["POST"])
