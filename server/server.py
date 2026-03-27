@@ -56,7 +56,7 @@ def create_order(order_id, amount, user_id):
     }
 
     try:
-        res = requests.post(url, json=data, headers=headers)
+        res = requests.post(url, json=data, headers=headers, timeout=10)
         print("✅ STATUS:", res.status_code)
         print("✅ RESPONSE:", res.text)
         return res.json()
