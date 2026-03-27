@@ -66,9 +66,11 @@ def create_order(order_id, amount, chat_id):
 # ✅ BACKGROUND PROCESS
 def process_order(chat_id, movie_id):
     try:
+        import time
+
         print("🔥 process_order running")
 
-        order_id = f"order_{chat_id}_{movie_id}"
+        order_id = f"order_{chat_id}_{movie_id}_{int(time.time())}"
 
         users_orders[order_id] = {
             "chat_id": chat_id,
@@ -83,7 +85,7 @@ def process_order(chat_id, movie_id):
             link = f"https://payments.cashfree.com/order/#/{order['payment_session_id']}"
             send_message(chat_id, f"💳 Pay ₹10:\n{link}")
         else:
-            send_message(chat_id, "❌ Payment error")
+            send_message(chat_id, f"❌ Error: {order}")
 
     except Exception as e:
         print("❌ process_order error:", e)
