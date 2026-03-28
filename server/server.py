@@ -84,13 +84,12 @@ def process_order(chat_id, movie_id):
 
         print("ORDER:", order)
 
-        if "order_id" in order:
-            # ✅ NEW WORKING PAYMENT LINK
-            link = f"https://payments.cashfree.com/pg/orders/{order_id}/payments"
-            send_message(chat_id, f"💳 Pay ₹10:\n{link}")
-        else:
-            send_message(chat_id, f"❌ Error: {order}")
-
+        if "payment_session_id" in order:
+    link = f"https://payments.cashfree.com/order/#/{order['payment_session_id']}"
+    send_message(chat_id, f"💳 Pay ₹10:\n{link}")
+else:
+    send_message(chat_id, f"❌ Error: {order}")
+            
     except Exception as e:
         print("❌ process_order error:", e)
 
