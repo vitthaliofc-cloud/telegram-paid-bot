@@ -6,15 +6,15 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-# ENV VARIABLES
+# ================== ENV VARIABLES ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CASHFREE_APP_ID = os.getenv("CASHFREE_APP_ID")
 CASHFREE_SECRET_KEY = os.getenv("CASHFREE_SECRET_KEY")
 
-# STORE ORDERS
+# ================== STORE ORDERS ==================
 users_orders = {}
 
-# ✅ SEND MESSAGE TO TELEGRAM
+# ================== TELEGRAM SEND ==================
 def send_message(chat_id, text):
     try:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -24,17 +24,15 @@ def send_message(chat_id, text):
             "text": text
         }, timeout=10)
 
-        print("📤 Telegram response:", res.text)
+        print("📤 Telegram:", res.text)
 
     except Exception as e:
-        print("❌ Telegram send error:", e)
+        print("❌ Telegram Error:", e)
 
 
-# ✅ CREATE CASHFREE ORDER (FIXED)
+# ================== CREATE CASHFREE ORDER ==================
 def create_order(order_id, amount, chat_id):
     try:
-        print("🔥 create_order called")
-
         url = "https://api.cashfree.com/pg/orders"
 
         headers = {
@@ -50,28 +48,28 @@ def create_order(order_id, amount, chat_id):
             "order_currency": "INR",
             "customer_details": {
                 "customer_id": str(chat_id),
-                "customer_phone": "9999999999"
+                "customer_phone": "9876543210"
             },
-            "order_meta": {   # ✅ IMPORTANT FIX
+            "order_meta": {
                 "return_url": "https://t.me/Running_MoviesBot",
                 "notify_url": "https://telegram-paid-bot-production-fbf8.up.railway.app/cashfree-webhook"
             }
         }
 
         res = requests.post(url, json=data, headers=headers, timeout=10)
-        print("💰 Cashfree response:", res.text)
+        print("💰 Cashfree:", res.text)
 
         return res.json()
 
     except Exception as e:
-        print("❌ create_order error:", e)
+        print("❌ Cashfree Error:", e)
         return {}
 
 
-# ✅ BACKGROUND PROCESS (FIXED LINK)
+# ================== PROCESS ORDER ==================
 def process_order(chat_id, movie_id):
     try:
-        print("🔥 process_order running")
+        print("🔥 process_order started")
 
         order_id = f"order_{chat_id}_{movie_id}_{int(time.time())}"
 
@@ -82,21 +80,19 @@ def process_order(chat_id, movie_id):
 
         order = create_order(order_id, 10, chat_id)
 
-        print("ORDER:", order)
-
         session_id = order.get("payment_session_id")
 
-if session_id:
-    link = f"https://payments.cashfree.com/order/#/{session_id}"
-    send_message(chat_id, f"💳 Pay ₹10:\n{link}")
-else:
-    send_message(chat_id, f"❌ Payment session error:\n{order}")
-            
+        if session_id:
+            link = f"https://payments.cashfree.com/order/#/{session_id}"
+            send_message(chat_id, f"💳 Pay ₹10:\n{link}")
+        else:
+            send_message(chat_id, f"❌ Payment Error:\n{order}")
+
     except Exception as e:
-        print("❌ process_order error:", e)
+        print("❌ process_order Error:", e)
 
 
-# ✅ TELEGRAM WEBHOOK
+# ================== TELEGRAM WEBHOOK ==================
 @app.route("/telegram", methods=["POST"])
 def telegram_webhook():
     try:
@@ -119,7 +115,7 @@ def telegram_webhook():
 
                 movie_id = parts[1]
 
-                # 🚀 THREAD START
+                # 🚀 THREAD
                 threading.Thread(
                     target=process_order,
                     args=(chat_id, movie_id)
@@ -130,41 +126,41 @@ def telegram_webhook():
         return "ok"
 
     except Exception as e:
-        print("❌ WEBHOOK ERROR:", e)
+        print("❌ Webhook Error:", e)
         return "ok"
 
 
-# ✅ CASHFREE WEBHOOK (PAYMENT VERIFY)
-@app.route('/cashfree-webhook', methods=['POST'])
+# ================== CASHFREE WEBHOOK ==================
+@app.route("/cashfree-webhook", methods=["POST"])
 def cashfree_webhook():
     try:
         data = request.json
-        print("💰 Webhook:", data)
+        print("💥 Cashfree Webhook:", data)
 
-        order_id = data.get("data", {}).get("order", {}).get("order_id")
-        status = data.get("data", {}).get("order", {}).get("order_status")
+        if data.get("type") == "PAYMENT_SUCCESS_WEBHOOK":
+            order_id = data["data"]["order"]["order_id"]
 
-        if status == "PAID" and order_id in users_orders:
-            chat_id = users_orders[order_id]["chat_id"]
+            if order_id in users_orders:
+                chat_id = users_orders[order_id]["chat_id"]
+                movie_id = users_orders[order_id]["movie_id"]
 
-            # 🎬 MOVIE SEND (DEMO)
-            send_message(chat_id, "✅ Payment Success!\n🎬 Here is your movie link:\nhttps://example.com/movie.mp4")
+                send_message(chat_id, f"✅ Payment Success!\n🎬 Movie ID: {movie_id}")
 
         return "ok"
 
     except Exception as e:
-        print("❌ webhook error:", e)
+        print("❌ Webhook Error:", e)
         return "ok"
 
 
-# ✅ HOME ROUTE
+# ================== HOME ==================
 @app.route("/")
 def home():
     return "Bot Running 🚀"
 
 
-# ✅ RUN SERVER
+# ================== RUN ==================
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print("🚀 Server started on port", port)
+    print("🚀 Server running on", port)
     app.run(host="0.0.0.0", port=port)
