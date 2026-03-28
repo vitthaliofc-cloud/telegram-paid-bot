@@ -48,7 +48,7 @@ def create_order(order_id, amount, chat_id):
             "order_currency": "INR",
             "customer_details": {
                 "customer_id": str(chat_id),
-                "customer_phone": "9876543210"
+                "customer_phone": "7030030089"
             },
             "order_meta": {
                 "return_url": "https://t.me/Running_MoviesBot",
