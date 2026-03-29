@@ -77,50 +77,53 @@ def webhook():
 
     # ---------- MESSAGE ----------
     if "message" in data:
-        msg = data["message"]
-        chat_id = msg["chat"]["id"]
-        text = msg.get("text")
+    msg = data["message"]
+    chat_id = msg["chat"]["id"]
+    text = msg.get("text")
 
-        print("🔥 TEXT:", text)
-        print("🔥 CHAT:", chat_id)
+    print("🔥 TEXT:", text)
+    print("🔥 CHAT:", chat_id)
 
-        # ---------- ADMIN ----------
-        if chat_id == ADMIN_ID:
+    # ---------------- ADMIN COMMANDS ----------------
+    if chat_id == ADMIN_ID and text:
 
-            if text and text.startswith("/add"):
-                try:
-                    _, name, msg_id = text.split()
-                    movie_map[name.lower()] = int(msg_id)
-                    save_movies(movie_map)
-                    send_message(chat_id, f"✅ Added {name}")
-                except:
-                    send_message(chat_id, "❌ Use: /add name id")
+        if text.startswith("/add"):
+            try:
+                _, name, msg_id = text.split()
+                movie_map[name.lower()] = int(msg_id)
+                save_movies(movie_map)
+                send_message(chat_id, f"✅ Added {name}")
+            except:
+                send_message(chat_id, "❌ Use: /add name id")
 
-            elif text and text.startswith("/delete"):
-                try:
-                    _, name = text.split()
-                    movie_map.pop(name.lower(), None)
-                    save_movies(movie_map)
-                    send_message(chat_id, f"🗑 Deleted {name}")
-                except:
-                    send_message(chat_id, "❌ Use: /delete name")
+        elif text.startswith("/delete"):
+            try:
+                _, name = text.split()
+                movie_map.pop(name.lower(), None)
+                save_movies(movie_map)
+                send_message(chat_id, f"🗑 Deleted {name}")
+            except:
+                send_message(chat_id, "❌ Use: /delete name")
 
-            elif text == "/list":
-                if movie_map:
-                    msg_text = "\n".join([f"{k} → {v}" for k,v in movie_map.items()])
-                    send_message(chat_id, msg_text)
-                else:
-                    send_message(chat_id, "❌ No movies added")
+        elif text == "/list":
+            if movie_map:
+                msg_text = "\n".join([f"{k} → {v}" for k,v in movie_map.items()])
+                send_message(chat_id, msg_text)
+            else:
+                send_message(chat_id, "❌ No movies")
 
-        # ---------- USER ----------
-        if text and text.startswith("/start"):
+    # ---------------- USER COMMANDS ----------------
+    if text:
+
+        if text.startswith("/start"):
             parts = text.split()
             movie_input = parts[1] if len(parts) > 1 else ""
 
             pending_users[chat_id] = movie_input
+            print("🔥 Sending payment...")
             send_payment(chat_id)
 
-        elif text and not text.startswith("/"):
+        elif not text.startswith("/"):
             pending_users[chat_id] = text.lower()
             send_payment(chat_id)
 
