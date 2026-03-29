@@ -6,7 +6,7 @@ import os
 app = Flask(__name__)
 
 BOT_TOKEN = "YOUR_BOT_TOKEN"
-ADMIN_ID = 123456789   # 👉 तुझा telegram id
+ADMIN_ID = 1206664080   # 👉 तुझा telegram id
 CHANNEL_ID = -1003786486534
 UPI_ID = "mp0089@ybl"
 
