@@ -132,13 +132,25 @@ def send_to_admin(user_id, movie_id, content, type_):
 
 # ================= SEND MOVIE =================
 def send_movie(user_id, movie_id):
-    movie_links = {
-        "5": "https://example.com/movie5.mp4"
+
+    CHANNEL_ID = -1003786486534  # ✅ तुझा channel id
+
+    movie_map = {
+        "31": 7   # 👉 इथे message_id टाक (खाली कसा काढायचा दिलंय)
     }
 
-    link = movie_links.get(movie_id, "https://example.com/default.mp4")
+    msg_id = movie_map.get(movie_id)
 
-    send_message(user_id, f"✅ Payment Verified!\n🎬 Movie Link:\n{link}")
+    if msg_id:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/forwardMessage"
+
+        requests.post(url, json={
+            "chat_id": user_id,
+            "from_chat_id": CHANNEL_ID,
+            "message_id": msg_id
+        })
+    else:
+        send_message(user_id, "❌ Movie not available")
 
 
 # ================= TELEGRAM =================
