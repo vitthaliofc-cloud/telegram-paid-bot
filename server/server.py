@@ -1,27 +1,22 @@
 from flask import Flask, request
-import requests
-import json
-import os
+import requests, json, os
 
 app = Flask(__name__)
 
-# 🔑 CONFIG
-BOT_TOKEN = "8752129214:AAF1me2PL3T6tNQIf6k_LmBD8cIn-iLLTAk"
-ADMIN_ID = 1206664080
-CHANNEL_ID = -100XXXXXXXXXX   # तुझा private channel id
-UPI_ID = "mp0089@ybl"
+# CONFIG
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
+CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
+UPI_ID = os.getenv("UPI_ID")
 
 MOVIE_FILE = "movies.json"
 
-# ---------------- LOAD ----------------
+# LOAD
 def load_movies():
-    try:
-        if not os.path.exists(MOVIE_FILE):
-            return {}
-        with open(MOVIE_FILE, "r") as f:
-            return json.load(f)
-    except:
+    if not os.path.exists(MOVIE_FILE):
         return {}
+    with open(MOVIE_FILE) as f:
+        return json.load(f)
 
 def save_movies(data):
     with open(MOVIE_FILE, "w") as f:
@@ -30,118 +25,146 @@ def save_movies(data):
 movie_map = load_movies()
 pending_users = {}
 
-# ---------------- TELEGRAM ----------------
-def send_message(chat_id, text):
-    requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={"chat_id": chat_id, "text": text}
-    )
+# TELEGRAM API
+def send_message(chat_id, text, reply_markup=None):
+    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": text,
+        "reply_markup": reply_markup
+    })
 
-def send_payment(chat_id):
-    text = f"""💰 Payment करा
+def send_photo(chat_id, file_id, caption="", keyboard=None):
+    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", json={
+        "chat_id": chat_id,
+        "photo": file_id,
+        "caption": caption,
+        "reply_markup": keyboard
+    })
 
+def send_payment(chat_id, movie_name):
+    text = f"""🎬 {movie_name}
+
+💰 Payment करा
 UPI: {UPI_ID}
 
 📸 Payment केल्यानंतर screenshot पाठवा"""
     send_message(chat_id, text)
 
-def send_movie(user_id, movie_input):
-    msg_id = movie_map.get(movie_input)
+def send_movie(user_id, msg_id):
+    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage", json={
+        "chat_id": user_id,
+        "from_chat_id": CHANNEL_ID,
+        "message_id": msg_id
+    })
 
-    if msg_id:
-        requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage",
-            json={
-                "chat_id": user_id,
-                "from_chat_id": CHANNEL_ID,
-                "message_id": msg_id
-            }
-        )
-    else:
-        send_message(user_id, "❌ Movie not found")
-
-# ---------------- WEBHOOK ----------------
+# WEBHOOK
 @app.route("/", methods=["POST"])
 def webhook():
-    try:
-        data = request.json
-        print("DATA:", data)
+    data = request.json
+    print(data)
 
-        # ---------- MESSAGE ----------
-        if "message" in data:
-            msg = data["message"]
-            chat_id = msg["chat"]["id"]
-            text = msg.get("text")
+    # ================= MESSAGE =================
+    if "message" in data:
+        msg = data["message"]
+        chat_id = msg["chat"]["id"]
+        text = msg.get("text", "")
 
-            # ADMIN ADD
-            if chat_id == ADMIN_ID and text:
-                if text.startswith("/add"):
-                    try:
-                        _, name, msg_id = text.split()
-                        movie_map[name.lower()] = int(msg_id)
-                        save_movies(movie_map)
-                        send_message(chat_id, f"✅ Added {name}")
-                    except:
-                        send_message(chat_id, "❌ Use: /add name id")
+        # ---------- ADMIN ADD ----------
+        if chat_id == ADMIN_ID and text.startswith("/add"):
+            try:
+                # format: /add kgf1 10
+                _, name, msg_id = text.split()
+                name = name.lower()
 
-            # USER COMMAND
-            if text:
-                if text.startswith("/start"):
-                    parts = text.split()
-                    movie_input = parts[1] if len(parts) > 1 else ""
+                if name not in movie_map:
+                    movie_map[name] = []
 
-                    pending_users[chat_id] = movie_input.lower()
-                    send_payment(chat_id)
+                movie_map[name].append(int(msg_id))
+                save_movies(movie_map)
 
-                elif not text.startswith("/"):
-                    pending_users[chat_id] = text.lower()
-                    send_payment(chat_id)
+                send_message(chat_id, f"✅ Added {name}")
+            except:
+                send_message(chat_id, "❌ Use: /add name msg_id")
 
-            # 📸 SCREENSHOT HANDLE
-            if "photo" in msg:
-                user_id = chat_id
-                movie_input = pending_users.get(user_id, "")
+        # ---------- USER START ----------
+        if text.startswith("/start"):
+            send_message(chat_id, "🎬 Send Movie ID or Name")
 
-                keyboard = {
-                    "inline_keyboard": [[
-                        {"text": "✅ Verify", "callback_data": f"ok_{user_id}"},
-                        {"text": "❌ Reject", "callback_data": f"no_{user_id}"}
-                    ]]
-                }
+        # ---------- USER SEARCH ----------
+        elif text:
+            query = text.lower()
 
-                requests.post(
-                    f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto",
-                    json={
-                        "chat_id": ADMIN_ID,
-                        "photo": msg["photo"][-1]["file_id"],
-                        "caption": f"User: {user_id}\nMovie: {movie_input}",
-                        "reply_markup": keyboard
-                    }
-                )
+            # FLOW 1: exact match (ID-like)
+            if query in movie_map and len(movie_map[query]) == 1:
+                msg_id = movie_map[query][0]
+                pending_users[chat_id] = msg_id
+                send_payment(chat_id, query)
 
-        # ---------- BUTTON ----------
-        if "callback_query" in data:
-            query = data["callback_query"]
-            data_val = query["data"]
+            else:
+                # FLOW 2: show buttons
+                buttons = []
+                for name in movie_map:
+                    if query in name:
+                        buttons.append([{
+                            "text": name,
+                            "callback_data": f"select_{name}"
+                        }])
 
-            if data_val.startswith("ok_"):
-                user_id = int(data_val.split("_")[1])
-                movie_input = pending_users.get(user_id)
+                if buttons:
+                    send_message(chat_id, "🎬 Select Movie:", {
+                        "inline_keyboard": buttons
+                    })
+                else:
+                    send_message(chat_id, "❌ Movie not found")
 
-                send_movie(user_id, movie_input)
-                send_message(user_id, "✅ Payment Verified")
+        # ---------- SCREENSHOT ----------
+        if "photo" in msg:
+            user_id = chat_id
+            msg_id = pending_users.get(user_id)
 
-            elif data_val.startswith("no_"):
-                user_id = int(data_val.split("_")[1])
-                send_message(user_id, "❌ Payment Failed")
+            keyboard = {
+                "inline_keyboard": [[
+                    {"text": "✅ Verify", "callback_data": f"ok_{user_id}_{msg_id}"},
+                    {"text": "❌ Reject", "callback_data": f"no_{user_id}"}
+                ]]
+            }
 
-        return "ok"
+            send_photo(
+                ADMIN_ID,
+                msg["photo"][-1]["file_id"],
+                f"User: {user_id}",
+                keyboard
+            )
 
-    except Exception as e:
-        print("ERROR:", e)
-        return "ok"
+            send_message(user_id, "⏳ Waiting for admin approval...")
 
-# ---------------- RUN ----------------
+    # ================= BUTTON =================
+    if "callback_query" in data:
+        query = data["callback_query"]
+        data_val = query["data"]
+        user_id = query["from"]["id"]
+
+        # SELECT MOVIE
+        if data_val.startswith("select_"):
+            name = data_val.split("_")[1]
+            msg_id = movie_map[name][0]
+
+            pending_users[user_id] = msg_id
+            send_payment(user_id, name)
+
+        # VERIFY
+        elif data_val.startswith("ok_"):
+            _, uid, msg_id = data_val.split("_")
+            send_movie(int(uid), int(msg_id))
+            send_message(int(uid), "✅ Payment Verified 🎬")
+
+        # REJECT
+        elif data_val.startswith("no_"):
+            uid = int(data_val.split("_")[1])
+            send_message(uid, "❌ Payment Rejected")
+
+    return "ok"
+
+# RUN
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
