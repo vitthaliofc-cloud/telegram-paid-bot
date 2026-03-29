@@ -133,16 +133,18 @@ def send_to_admin(user_id, movie_id, content, type_):
 # ================= SEND MOVIE =================
 def send_movie(user_id, movie_id):
 
-    CHANNEL_ID = -1003786486534  # ✅ तुझा channel id
+    CHANNEL_ID = -1003786486534  # तुझा channel id
 
     movie_map = {
-        "31": 7   # 👉 इथे message_id टाक (खाली कसा काढायचा दिलंय)
+        "31": 31,
+        "32": 32,
+        "33": 33
     }
 
     msg_id = movie_map.get(movie_id)
 
     if msg_id:
-        url = f"https://api.telegram.org/bot{BOT_TOKEN}/forwardMessage"
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage"
 
         requests.post(url, json={
             "chat_id": user_id,
