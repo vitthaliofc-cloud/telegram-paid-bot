@@ -3,14 +3,15 @@ import requests
 
 app = Flask(__name__)
 
-BOT_TOKEN = "YOUR_NEW_TOKEN"
+BOT_TOKEN = "8752129214:AAF1me2PL3T6tNQIf6k_LmBD8cIn-iLLTAk"
 
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, json={
+    res = requests.post(url, json={
         "chat_id": chat_id,
         "text": text
     })
+    print("SEND STATUS:", res.text)  # 🔥 IMPORTANT DEBUG
 
 @app.route("/", methods=["GET"])
 def home():
@@ -18,20 +19,13 @@ def home():
 
 @app.route("/", methods=["POST"])
 def webhook():
-    try:
-        data = request.get_json(force=True)
-        print("UPDATE:", data)
+    data = request.get_json(force=True)
+    print("UPDATE:", data)
 
-        if "message" in data:
-            chat_id = data["message"]["chat"]["id"]
-            text = data["message"].get("text", "")
+    if "message" in data:
+        chat_id = data["message"]["chat"]["id"]
+        text = data["message"].get("text", "")
 
-            # 🔥 SIMPLE REPLY
-            if text:
-                send_message(chat_id, f"🔥 You said: {text}")
+        send_message(chat_id, f"Reply: {text}")
 
-        return "ok", 200
-
-    except Exception as e:
-        print("ERROR:", e)
-        return "ok", 200
+    return "ok", 200
