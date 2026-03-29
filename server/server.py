@@ -5,8 +5,9 @@ import os
 
 app = Flask(__name__)
 
+# 🔑 CONFIG
 BOT_TOKEN = "YOUR_BOT_TOKEN"
-ADMIN_ID = 1206664080   # 👉 तुझा telegram id
+ADMIN_ID = 1206664080   # 👉 तुझा Telegram ID टाक
 CHANNEL_ID = -1003786486534
 UPI_ID = "mp0089@ybl"
 
@@ -34,20 +35,20 @@ def send_message(chat_id, text):
     requests.post(url, json={"chat_id": chat_id, "text": text})
 
 def send_payment(chat_id):
-    text = f"💰 Pay ₹10\nUPI: {UPI_ID}\n\n📸 Send screenshot after payment"
+    text = f"💰 Pay ₹10\nUPI: {UPI_ID}\n\n📸 Payment screenshot पाठवा"
     send_message(chat_id, text)
 
 def send_movie(user_id, movie_input):
 
     msg_id = None
 
-    # ID system
+    # 🎬 ID SYSTEM
     if str(movie_input).isdigit():
         msg_id = int(movie_input)
 
-    # Name system
+    # 🎬 NAME SYSTEM
     else:
-        msg_id = movie_map.get(movie_input.lower())
+        msg_id = movie_map.get(str(movie_input).lower())
 
     if msg_id:
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage"
@@ -66,15 +67,21 @@ def send_movie(user_id, movie_input):
 def webhook():
     data = request.json
 
+    print("🔥 FULL DATA:", data)
+
+    # ---------- MESSAGE ----------
     if "message" in data:
         msg = data["message"]
         chat_id = msg["chat"]["id"]
-        text = msg.get("text", "")
+        text = msg.get("text")
 
-        # ---------- ADMIN COMMANDS ----------
+        print("🔥 TEXT:", text)
+        print("🔥 CHAT:", chat_id)
+
+        # ---------- ADMIN ----------
         if chat_id == ADMIN_ID:
 
-            if text.startswith("/add"):
+            if text and text.startswith("/add"):
                 try:
                     _, name, msg_id = text.split()
                     movie_map[name.lower()] = int(msg_id)
@@ -83,21 +90,24 @@ def webhook():
                 except:
                     send_message(chat_id, "❌ Use: /add name id")
 
-            elif text.startswith("/delete"):
-                _, name = text.split()
-                movie_map.pop(name.lower(), None)
-                save_movies(movie_map)
-                send_message(chat_id, f"🗑 Deleted {name}")
+            elif text and text.startswith("/delete"):
+                try:
+                    _, name = text.split()
+                    movie_map.pop(name.lower(), None)
+                    save_movies(movie_map)
+                    send_message(chat_id, f"🗑 Deleted {name}")
+                except:
+                    send_message(chat_id, "❌ Use: /delete name")
 
             elif text == "/list":
                 if movie_map:
                     msg_text = "\n".join([f"{k} → {v}" for k,v in movie_map.items()])
                     send_message(chat_id, msg_text)
                 else:
-                    send_message(chat_id, "No movies")
+                    send_message(chat_id, "❌ No movies added")
 
         # ---------- USER ----------
-        if text.startswith("/start"):
+        if text and text.startswith("/start"):
             parts = text.split()
             movie_input = parts[1] if len(parts) > 1 else ""
 
@@ -109,13 +119,12 @@ def webhook():
             send_payment(chat_id)
 
     # ---------- SCREENSHOT ----------
-    if "photo" in data.get("message", {}):
+    if "message" in data and "photo" in data["message"]:
         msg = data["message"]
         user_id = msg["chat"]["id"]
 
         movie_input = pending_users.get(user_id)
 
-        # send to admin
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
         keyboard = {
@@ -150,5 +159,7 @@ def webhook():
 
     return "ok"
 
+# ---------------- RUN ----------------
+
 if __name__ == "__main__":
-    app.run(port=8080)
+    app.run(host="0.0.0.0", port=8080)
