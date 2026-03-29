@@ -32,7 +32,13 @@ pending_users = {}
 
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, json={"chat_id": chat_id, "text": text})
+
+    res = requests.post(url, json={
+        "chat_id": chat_id,
+        "text": text
+    })
+
+    print("📤 SEND MSG RESPONSE:", res.text)
 
 def send_payment(chat_id):
     text = f"💰 Pay ₹10\nUPI: {UPI_ID}\n\n📸 Payment screenshot पाठवा"
