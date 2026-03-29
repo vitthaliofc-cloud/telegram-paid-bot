@@ -1,17 +1,19 @@
 from flask import Flask, request
-import requests, json, os
+import requests, json, os, qrcode
+from io import BytesIO
 
 app = Flask(__name__)
 
-# CONFIG
+# ===== CONFIG =====
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 CHANNEL_ID = int(os.getenv("CHANNEL_ID"))
 UPI_ID = os.getenv("UPI_ID")
+MERCHANT_NAME = "MovieBot"
 
 MOVIE_FILE = "movies.json"
 
-# LOAD
+# ===== LOAD =====
 def load_movies():
     if not os.path.exists(MOVIE_FILE):
         return {}
@@ -25,30 +27,35 @@ def save_movies(data):
 movie_map = load_movies()
 pending_users = {}
 
-# TELEGRAM API
-def send_message(chat_id, text, reply_markup=None):
+# ===== TELEGRAM =====
+def send_message(chat_id, text, keyboard=None):
     requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage", json={
         "chat_id": chat_id,
         "text": text,
-        "reply_markup": reply_markup
-    })
-
-def send_photo(chat_id, file_id, caption="", keyboard=None):
-    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", json={
-        "chat_id": chat_id,
-        "photo": file_id,
-        "caption": caption,
         "reply_markup": keyboard
     })
 
-def send_payment(chat_id, movie_name):
-    text = f"""🎬 {movie_name}
+def send_qr(chat_id, amount, movie_id):
+    upi_link = f"upi://pay?pa={UPI_ID}&pn={MERCHANT_NAME}&am={amount}&cu=INR"
 
-💰 Payment करा
+    qr = qrcode.make(upi_link)
+    bio = BytesIO()
+    bio.name = "qr.png"
+    qr.save(bio, "PNG")
+    bio.seek(0)
+
+    files = {"photo": bio}
+    data = {
+        "chat_id": chat_id,
+        "caption": f"""🎬 Movie ID: {movie_id}
+
+💰 Pay ₹{amount}
 UPI: {UPI_ID}
 
 📸 Payment केल्यानंतर screenshot पाठवा"""
-    send_message(chat_id, text)
+    }
+
+    requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", data=data, files=files)
 
 def send_movie(user_id, msg_id):
     requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/copyMessage", json={
@@ -57,114 +64,96 @@ def send_movie(user_id, msg_id):
         "message_id": msg_id
     })
 
-# WEBHOOK
+# ===== HOME =====
+@app.route("/", methods=["GET"])
+def home():
+    return "Bot Running ✅"
+
+# ===== WEBHOOK =====
 @app.route("/", methods=["POST"])
 def webhook():
-    data = request.json
-    print(data)
+    try:
+        data = request.get_json(force=True, silent=True)
+        if not data:
+            return "ok"
 
-    # ================= MESSAGE =================
-    if "message" in data:
-        msg = data["message"]
-        chat_id = msg["chat"]["id"]
-        text = msg.get("text", "")
+        # ===== MESSAGE =====
+        if "message" in data:
+            msg = data["message"]
+            chat_id = msg["chat"]["id"]
+            text = msg.get("text", "")
 
-        # ---------- ADMIN ADD ----------
-        if chat_id == ADMIN_ID and text.startswith("/add"):
-            try:
-                # format: /add kgf1 10
-                _, name, msg_id = text.split()
-                name = name.lower()
+            # ===== AUTO MAPPING =====
+            if chat_id == ADMIN_ID and "forward_from_chat" in msg:
+                if msg["forward_from_chat"]["id"] == CHANNEL_ID:
+                    msg_id = msg["forward_from_message_id"]
 
-                if name not in movie_map:
-                    movie_map[name] = []
+                    movie_id = str(len(movie_map) + 101)  # auto id
+                    movie_map[movie_id] = msg_id
+                    save_movies(movie_map)
 
-                movie_map[name].append(int(msg_id))
-                save_movies(movie_map)
+                    send_message(chat_id, f"✅ Movie Added ID: {movie_id}")
 
-                send_message(chat_id, f"✅ Added {name}")
-            except:
-                send_message(chat_id, "❌ Use: /add name msg_id")
+            # ===== START =====
+            if text.startswith("/start"):
+                parts = text.split()
+                if len(parts) > 1:
+                    movie_id = parts[1]
 
-        # ---------- USER START ----------
-        if text.startswith("/start"):
-            send_message(chat_id, "🎬 Send Movie ID or Name")
-
-        # ---------- USER SEARCH ----------
-        elif text:
-            query = text.lower()
-
-            # FLOW 1: exact match (ID-like)
-            if query in movie_map and len(movie_map[query]) == 1:
-                msg_id = movie_map[query][0]
-                pending_users[chat_id] = msg_id
-                send_payment(chat_id, query)
-
-            else:
-                # FLOW 2: show buttons
-                buttons = []
-                for name in movie_map:
-                    if query in name:
-                        buttons.append([{
-                            "text": name,
-                            "callback_data": f"select_{name}"
-                        }])
-
-                if buttons:
-                    send_message(chat_id, "🎬 Select Movie:", {
-                        "inline_keyboard": buttons
-                    })
+                    if movie_id in movie_map:
+                        pending_users[chat_id] = movie_id
+                        send_qr(chat_id, 30, movie_id)
+                    else:
+                        send_message(chat_id, "❌ Movie not found")
                 else:
-                    send_message(chat_id, "❌ Movie not found")
+                    send_message(chat_id, "Send: /start 101")
 
-        # ---------- SCREENSHOT ----------
-        if "photo" in msg:
-            user_id = chat_id
-            msg_id = pending_users.get(user_id)
+            # ===== SCREENSHOT =====
+            if "photo" in msg:
+                user_id = chat_id
+                movie_id = pending_users.get(user_id)
 
-            keyboard = {
-                "inline_keyboard": [[
-                    {"text": "✅ Verify", "callback_data": f"ok_{user_id}_{msg_id}"},
-                    {"text": "❌ Reject", "callback_data": f"no_{user_id}"}
-                ]]
-            }
+                if not movie_id:
+                    return "ok"
 
-            send_photo(
-                ADMIN_ID,
-                msg["photo"][-1]["file_id"],
-                f"User: {user_id}",
-                keyboard
-            )
+                msg_id = movie_map.get(movie_id)
 
-            send_message(user_id, "⏳ Waiting for admin approval...")
+                keyboard = {
+                    "inline_keyboard": [[
+                        {"text": "✅ Verify", "callback_data": f"ok_{user_id}_{msg_id}"},
+                        {"text": "❌ Reject", "callback_data": f"no_{user_id}"}
+                    ]]
+                }
 
-    # ================= BUTTON =================
-    if "callback_query" in data:
-        query = data["callback_query"]
-        data_val = query["data"]
-        user_id = query["from"]["id"]
+                requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto", json={
+                    "chat_id": ADMIN_ID,
+                    "photo": msg["photo"][-1]["file_id"],
+                    "caption": f"User: {user_id}\nMovie ID: {movie_id}",
+                    "reply_markup": keyboard
+                })
 
-        # SELECT MOVIE
-        if data_val.startswith("select_"):
-            name = data_val.split("_")[1]
-            msg_id = movie_map[name][0]
+                send_message(user_id, "⏳ Waiting for admin approval...")
 
-            pending_users[user_id] = msg_id
-            send_payment(user_id, name)
+        # ===== BUTTON =====
+        if "callback_query" in data:
+            query = data["callback_query"]
+            data_val = query["data"]
 
-        # VERIFY
-        elif data_val.startswith("ok_"):
-            _, uid, msg_id = data_val.split("_")
-            send_movie(int(uid), int(msg_id))
-            send_message(int(uid), "✅ Payment Verified 🎬")
+            if data_val.startswith("ok_"):
+                _, uid, msg_id = data_val.split("_")
+                send_movie(int(uid), int(msg_id))
+                send_message(int(uid), "✅ Payment Verified 🎬")
 
-        # REJECT
-        elif data_val.startswith("no_"):
-            uid = int(data_val.split("_")[1])
-            send_message(uid, "❌ Payment Rejected")
+            elif data_val.startswith("no_"):
+                uid = int(data_val.split("_")[1])
+                send_message(uid, "❌ Payment Rejected")
 
-    return "ok"
+        return "ok"
 
-# RUN
+    except Exception as e:
+        print("ERROR:", str(e))
+        return "ok"
+
+# ===== RUN =====
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
