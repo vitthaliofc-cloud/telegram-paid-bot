@@ -1,5 +1,6 @@
 import os
 import requests
+import qrcode
 from flask import Flask, request
 
 app = Flask(__name__)
@@ -7,7 +8,8 @@ app = Flask(__name__)
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-# store user requests
+UPI_ID = "mp0089@ybl"
+
 pending_users = {}
 
 @app.route("/")
@@ -18,27 +20,21 @@ def home():
 def telegram_webhook():
     data = request.get_json()
 
-    # ================= USER MESSAGE =================
     if "message" in data:
         chat_id = data["message"]["chat"]["id"]
         text = data["message"].get("text", "")
 
-        # START COMMAND
+        # START
         if text.startswith("/start"):
             parts = text.split()
             movie_id = parts[1] if len(parts) > 1 else "1"
 
             pending_users[chat_id] = movie_id
 
-            send_message(chat_id,
-                f"🎬 Movie ID: {movie_id}\n💰 Price: ₹10\n\n"
-                f"👉 UPI: yourupi@upi\n"
-                f"👉 QR scan करा\n\n"
-                f"Payment केल्यावर:\n"
-                f"📸 Screenshot पाठवा\n"
-                f"किंवा\n"
-                f"🧾 UTR ID पाठवा"
-            )
+            # generate QR
+            qr_path = generate_qr(chat_id)
+
+            send_qr(chat_id, qr_path, movie_id)
 
         # SCREENSHOT
         if "photo" in data["message"]:
@@ -46,18 +42,16 @@ def telegram_webhook():
             movie_id = pending_users.get(chat_id, "1")
 
             send_to_admin(chat_id, movie_id, file_id, "photo")
-
             send_message(chat_id, "⏳ Verification चालू आहे...")
 
-        # UTR / TEXT
+        # UTR
         elif text and not text.startswith("/"):
             movie_id = pending_users.get(chat_id, "1")
 
             send_to_admin(chat_id, movie_id, text, "text")
-
             send_message(chat_id, "⏳ Verification चालू आहे...")
 
-    # ================= BUTTON HANDLER =================
+    # BUTTON
     if "callback_query" in data:
         query = data["callback_query"]
         data_btn = query["data"]
@@ -75,10 +69,41 @@ def telegram_webhook():
     return "ok"
 
 
-# ================= SEND TO ADMIN =================
-def send_to_admin(user_id, movie_id, content, type_):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+# ================= QR GENERATE =================
+def generate_qr(chat_id):
+    upi_link = f"upi://pay?pa={UPI_ID}&pn=MovieBot&am=10&cu=INR"
 
+    img = qrcode.make(upi_link)
+    path = f"/tmp/qr_{chat_id}.png"
+    img.save(path)
+
+    return path
+
+
+# ================= SEND QR =================
+def send_qr(chat_id, qr_path, movie_id):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+
+    caption = (
+        f"🎬 Movie ID: {movie_id}\n"
+        f"💰 Price: ₹10\n\n"
+        f"👉 UPI: {UPI_ID}\n\n"
+        f"QR scan करून payment करा 📲\n\n"
+        f"Payment केल्यावर:\n"
+        f"📸 Screenshot पाठवा\n"
+        f"किंवा\n"
+        f"🧾 UTR ID पाठवा"
+    )
+
+    with open(qr_path, "rb") as photo:
+        requests.post(url, files={"photo": photo}, data={
+            "chat_id": chat_id,
+            "caption": caption
+        })
+
+
+# ================= ADMIN =================
+def send_to_admin(user_id, movie_id, content, type_):
     keyboard = {
         "inline_keyboard": [[
             {"text": "✅ Verified", "callback_data": f"verify|{user_id}|{movie_id}"},
@@ -97,6 +122,7 @@ def send_to_admin(user_id, movie_id, content, type_):
             "reply_markup": keyboard
         })
     else:
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         requests.post(url, json={
             "chat_id": ADMIN_ID,
             "text": f"{caption}\nUTR: {content}",
@@ -107,7 +133,6 @@ def send_to_admin(user_id, movie_id, content, type_):
 # ================= SEND MOVIE =================
 def send_movie(user_id, movie_id):
     movie_links = {
-        "1": "https://example.com/movie1.mp4",
         "5": "https://example.com/movie5.mp4"
     }
 
@@ -116,7 +141,7 @@ def send_movie(user_id, movie_id):
     send_message(user_id, f"✅ Payment Verified!\n🎬 Movie Link:\n{link}")
 
 
-# ================= TELEGRAM SEND =================
+# ================= TELEGRAM =================
 def send_message(chat_id, text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     requests.post(url, json={"chat_id": chat_id, "text": text})
