@@ -15,36 +15,46 @@ app = Flask(__name__)
 pending = {}  # user_id: movie_id
 
 # -------- START --------
+import qrcode
+from io import BytesIO
+
 @bot.message_handler(commands=['start'])
 def start(message):
-    user_id = message.from_user.id
-    parts = message.text.split()
+    try:
+        movie_id = message.text.split()[1]
+    except:
+        bot.reply_to(message, "Invalid link ❌")
+        return
 
-    if len(parts) == 2:
-        movie_id = parts[1]
-        pending[user_id] = movie_id
+    price = 10  # 🔥 Fixed price for all movies
+    upi_id = "mp0089@ybl"
 
-        # QR generate
-        qr = qrcode.make(f"upi://pay?pa={UPI_ID}&pn=Movie&am=50&cu=INR")
-        bio = BytesIO()
-        bio.name = "qr.png"
-        qr.save(bio, "PNG")
-        bio.seek(0)
+    # UPI Payment Link
+    upi_link = f"upi://pay?pa={upi_id}&pn=MovieBot&am={price}&cu=INR"
 
-        caption = f"""
-🎬 Movie ID: {movie_id}
+    # QR Generate
+    qr = qrcode.make(upi_link)
+    bio = BytesIO()
+    bio.name = "qr.png"
+    qr.save(bio, "PNG")
+    bio.seek(0)
 
-💰 Amount: ₹50
-📲 UPI ID: {UPI_ID}
+    # Message
+    caption = f"""🎬 Movie ID: {movie_id}
 
-👉 Pay & send screenshot here
+💰 Price: ₹{price}
+
+👉 UPI: {upi_id}
+
+QR scan करून payment करा 📲
+
+Payment केल्यावर:
+📸 Screenshot पाठवा
+किंवा
+🧾 UTR ID पाठवा
 """
 
-        bot.send_photo(user_id, bio, caption=caption)
-
-    else:
-        bot.reply_to(message, "Use: /start <movie_id>")
-
+    bot.send_photo(message.chat.id, bio, caption=caption)
 # -------- SCREENSHOT --------
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
