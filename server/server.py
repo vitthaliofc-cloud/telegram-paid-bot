@@ -50,9 +50,11 @@ def send_movie(user_id, movie_msg_id):
     )
 
 # ---------------- WEBHOOK ----------------
-@app.route("/", methods=["POST"])
+@@app.route("/", methods=["POST"])
 def webhook():
     data = request.json
+    print("WEBHOOK RECEIVED:", data)
+    ...
 
     # --------- MESSAGE HANDLER ---------
     if "message" in data:
