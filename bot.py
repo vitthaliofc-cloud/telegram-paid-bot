@@ -7,26 +7,24 @@ from io import BytesIO
 
 # 🔐 CONFIG
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-bot = telebot.TeleBot(BOT_TOKEN)
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID"))  # ✅ ENV मधून channel id
 
+bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
 ADMIN_ID = 1206664080
 
-# 🔥 Private Channel ID (IMPORTANT)
-CHANNEL_ID = -1001234567890  # 👉 इथे तुझा real channel id टाक
-
-# 🧠 Temporary Memory DB
+# 🧠 Temporary DB
 user_data = {}
 
-# 🎬 Movie mapping (movie_id → message_id)
+# 🎬 Movie mapping
 movie_map = {
     "29": 45,
     "31": 46,
     "32": 47
 }
 
-# -------- START (QR SEND) --------
+# -------- START --------
 @bot.message_handler(commands=['start'])
 def start(message):
     try:
@@ -38,13 +36,10 @@ def start(message):
     price = 10
     upi_id = "mp0089@ybl"
 
-    # Save user data
     user_data[message.chat.id] = {"movie_id": movie_id}
 
-    # UPI link
     upi_link = f"upi://pay?pa={upi_id}&pn=MovieBot&am={price}&cu=INR"
 
-    # Generate QR
     qr = qrcode.make(upi_link)
     bio = BytesIO()
     bio.name = "qr.png"
@@ -54,7 +49,6 @@ def start(message):
     caption = f"""🎬 Movie ID: {movie_id}
 
 💰 Price: ₹10
-
 👉 UPI: {upi_id}
 
 QR scan करून payment करा 📲
@@ -65,12 +59,12 @@ Payment केल्यावर:
 🧾 UTR ID पाठवा
 
 ━━━━━━━━━━━━━━━
-📞 Contact us: @Owner_Of_Groups
+📞 Contact: @Owner_Of_Groups
 """
 
     bot.send_photo(message.chat.id, bio, caption=caption)
 
-# -------- HANDLE SCREENSHOT --------
+# -------- PHOTO --------
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     user_id = message.chat.id
@@ -91,7 +85,7 @@ def handle_photo(message):
 
     bot.reply_to(message, "✅ Screenshot received! Waiting for approval.")
 
-# -------- HANDLE UTR --------
+# -------- TEXT (UTR) --------
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
     if message.text.startswith("/start"):
@@ -114,7 +108,7 @@ def handle_text(message):
 
     bot.reply_to(message, "✅ Details received! Waiting for approval.")
 
-# -------- APPROVE / REJECT --------
+# -------- CALLBACK --------
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
     data = call.data
@@ -127,16 +121,16 @@ def callback_query(call):
 
         if message_id:
             try:
-                bot.forward_message(
+                bot.copy_message(  # ✅ forward ऐवजी copy
                     chat_id=user_id,
-                    from_chat_id=CHANNEL_ID,  # 🔥 private channel id
+                    from_chat_id=CHANNEL_ID,
                     message_id=message_id
                 )
 
                 bot.send_message(user_id, "🎉 Payment Approved! Enjoy your movie 🎬")
 
             except Exception as e:
-                bot.send_message(user_id, "⚠️ Error sending movie. Please contact admin.")
+                bot.send_message(user_id, "⚠️ Error sending movie. Contact admin.")
                 print(e)
         else:
             bot.send_message(user_id, "❌ Movie not found!")
@@ -148,10 +142,23 @@ def callback_query(call):
 
         bot.send_message(
             user_id,
-            "❌ Payment Rejected.\n\nContact: @Owner_Of_Groups"
+            "❌ Payment Rejected.\nContact: @Owner_Of_Groups"
         )
 
         bot.answer_callback_query(call.id, "Rejected ❌")
+
+# -------- DEBUG TEST --------
+@bot.message_handler(commands=['test'])
+def test(message):
+    try:
+        bot.copy_message(
+            chat_id=message.chat.id,
+            from_chat_id=CHANNEL_ID,
+            message_id=45
+        )
+        bot.reply_to(message, "✅ Channel Working")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Error: {e}")
 
 # -------- WEBHOOK --------
 @app.route("/", methods=["POST"])
