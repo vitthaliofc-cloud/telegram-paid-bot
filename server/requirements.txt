@@ -1,4 +1,5 @@
-flask==2.2.5
-requests==2.31.0
-gunicorn==21.2.0
+pytelegrambotapi==4.12.0
+flask==2.3.6
 qrcode[pil]==7.4.2
+pillow==10.1.0
+requests==2.32.0
