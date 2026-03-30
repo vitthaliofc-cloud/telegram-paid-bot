@@ -16,19 +16,16 @@ ADMIN_ID = 1206664080
 
 user_data = {}
 
-# -------- GET MOVIE NAME --------
+# -------- GET MOVIE NAME (AUTO DELETE) --------
 def get_movie_name(msg_id):
     try:
         msg = bot.forward_message(ADMIN_ID, CHANNEL_ID, msg_id)
-
         movie_name = msg.caption or msg.text or f"Movie #{msg_id}"
-
-        # 🧹 Auto delete forwarded movie
-        bot.delete_message(ADMIN_ID, msg.message_id)
-
+        bot.delete_message(ADMIN_ID, msg.message_id)  # 🧹 delete
         return movie_name
     except:
         return f"Movie #{msg_id}"
+
 # -------- START --------
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -61,10 +58,12 @@ def start(message):
 QR scan करून payment करा 📲
 
 📸 Screenshot किंवा 🧾 UTR पाठवा
+
+📞 Contact us: @Owner_Of_Groups
 """
     )
 
-# -------- PAYMENT --------
+# -------- SEND TO ADMIN --------
 def send_to_admin(message, user_id):
     data = user_data.get(user_id, {})
     msg_id = data.get("message_id")
@@ -132,16 +131,27 @@ def callback(call):
 
         try:
             bot.copy_message(user_id, CHANNEL_ID, msg_id)
-            bot.send_message(user_id, "🎉 Approved! Enjoy 🎬")
+
+            bot.send_message(user_id, "🎉 Payment Approved! Enjoy your movie 🎬")
+
+            # ✅ ADMIN CONFIRMATION
+            bot.send_message(
+                ADMIN_ID,
+                f"✅ Movie sent successfully to user {user_id}"
+            )
+
         except Exception as e:
             bot.send_message(user_id, "⚠️ Error sending movie")
+            bot.send_message(ADMIN_ID, f"❌ Error sending movie to {user_id}")
             print(e)
 
         bot.answer_callback_query(call.id, "Approved ✅")
 
     elif data.startswith("reject_"):
         user_id = int(data.split("_")[1])
-        bot.send_message(user_id, "❌ Rejected")
+
+        bot.send_message(user_id, "❌ Payment Rejected")
+
         bot.answer_callback_query(call.id, "Rejected ❌")
 
 # -------- WEBHOOK --------
@@ -152,12 +162,12 @@ def webhook():
     bot.process_new_updates([update])
     return "OK", 200
 
-# -------- HEALTH CHECK --------
+# -------- HEALTH --------
 @app.route("/", methods=["GET"])
 def home():
     return "Bot Running 🚀", 200
 
 # -------- RUN --------
 if __name__ == "__main__":
-    print("🚀 Bot running (Webhook Mode)")
+    print("🚀 Bot Running...")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
