@@ -7,36 +7,29 @@ from io import BytesIO
 
 # 🔐 CONFIG
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHANNEL_ID = int(os.environ.get("CHANNEL_ID"))  # ✅ ENV मधून channel id
+CHANNEL_ID = int(os.environ.get("CHANNEL_ID"))
 
 bot = telebot.TeleBot(BOT_TOKEN)
 app = Flask(__name__)
 
 ADMIN_ID = 1206664080
 
-# 🧠 Temporary DB
+# 🧠 Memory
 user_data = {}
-
-# 🎬 Movie mapping
-movie_map = {
-    "29": 45,
-    "31": 46,
-    "32": 47
-}
 
 # -------- START --------
 @bot.message_handler(commands=['start'])
 def start(message):
     try:
-        movie_id = message.text.split()[1]
+        message_id = int(message.text.split()[1])  # 🔥 direct message_id
     except:
         bot.reply_to(message, "❌ Invalid link")
         return
 
+    user_data[message.chat.id] = {"message_id": message_id}
+
     price = 10
     upi_id = "mp0089@ybl"
-
-    user_data[message.chat.id] = {"movie_id": movie_id}
 
     upi_link = f"upi://pay?pa={upi_id}&pn=MovieBot&am={price}&cu=INR"
 
@@ -46,7 +39,10 @@ def start(message):
     qr.save(bio, "PNG")
     bio.seek(0)
 
-    caption = f"""🎬 Movie ID: {movie_id}
+    bot.send_photo(
+        message.chat.id,
+        bio,
+        caption=f"""🎬 Movie Access
 
 💰 Price: ₹10
 👉 UPI: {upi_id}
@@ -54,21 +50,18 @@ def start(message):
 QR scan करून payment करा 📲
 
 Payment केल्यावर:
-📸 Screenshot पाठवा
-किंवा
-🧾 UTR ID पाठवा
+📸 Screenshot किंवा 🧾 UTR पाठवा
 
 ━━━━━━━━━━━━━━━
 📞 Contact: @Owner_Of_Groups
 """
+    )
 
-    bot.send_photo(message.chat.id, bio, caption=caption)
-
-# -------- PHOTO --------
+# -------- SCREENSHOT --------
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
     user_id = message.chat.id
-    movie_id = user_data.get(user_id, {}).get("movie_id", "Unknown")
+    msg_id = user_data.get(user_id, {}).get("message_id")
 
     markup = types.InlineKeyboardMarkup()
     markup.add(
@@ -79,20 +72,20 @@ def handle_photo(message):
     bot.send_photo(
         ADMIN_ID,
         message.photo[-1].file_id,
-        caption=f"📸 Payment Screenshot\n\n👤 User: {user_id}\n🎬 Movie: {movie_id}",
+        caption=f"📸 Payment Screenshot\n\n👤 User: {user_id}\n🎬 MsgID: {msg_id}",
         reply_markup=markup
     )
 
-    bot.reply_to(message, "✅ Screenshot received! Waiting for approval.")
+    bot.reply_to(message, "✅ Screenshot received!")
 
-# -------- TEXT (UTR) --------
+# -------- TEXT --------
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
     if message.text.startswith("/start"):
         return
 
     user_id = message.chat.id
-    movie_id = user_data.get(user_id, {}).get("movie_id", "Unknown")
+    msg_id = user_data.get(user_id, {}).get("message_id")
 
     markup = types.InlineKeyboardMarkup()
     markup.add(
@@ -102,11 +95,9 @@ def handle_text(message):
 
     bot.send_message(
         ADMIN_ID,
-        f"🧾 UTR Received\n\n👤 User: {user_id}\n🎬 Movie: {movie_id}\n\n{message.text}",
+        f"🧾 Payment Info\n\n👤 User: {user_id}\n🎬 MsgID: {msg_id}\n\n{message.text}",
         reply_markup=markup
     )
-
-    bot.reply_to(message, "✅ Details received! Waiting for approval.")
 
 # -------- CALLBACK --------
 @bot.callback_query_handler(func=lambda call: True)
@@ -116,49 +107,29 @@ def callback_query(call):
     if data.startswith("approve_"):
         user_id = int(data.split("_")[1])
 
-        movie_id = user_data.get(user_id, {}).get("movie_id")
-        message_id = movie_map.get(movie_id)
+        msg_id = user_data.get(user_id, {}).get("message_id")
 
-        if message_id:
-            try:
-                bot.copy_message(  # ✅ forward ऐवजी copy
-                    chat_id=user_id,
-                    from_chat_id=CHANNEL_ID,
-                    message_id=message_id
-                )
+        try:
+            bot.copy_message(
+                chat_id=user_id,
+                from_chat_id=CHANNEL_ID,
+                message_id=msg_id  # 🔥 dynamic
+            )
 
-                bot.send_message(user_id, "🎉 Payment Approved! Enjoy your movie 🎬")
+            bot.send_message(user_id, "🎉 Payment Approved! Enjoy 🎬")
 
-            except Exception as e:
-                bot.send_message(user_id, "⚠️ Error sending movie. Contact admin.")
-                print(e)
-        else:
-            bot.send_message(user_id, "❌ Movie not found!")
+        except Exception as e:
+            bot.send_message(user_id, "⚠️ Error sending movie")
+            print(e)
 
         bot.answer_callback_query(call.id, "Approved ✅")
 
     elif data.startswith("reject_"):
         user_id = int(data.split("_")[1])
 
-        bot.send_message(
-            user_id,
-            "❌ Payment Rejected.\nContact: @Owner_Of_Groups"
-        )
+        bot.send_message(user_id, "❌ Payment Rejected")
 
         bot.answer_callback_query(call.id, "Rejected ❌")
-
-# -------- DEBUG TEST --------
-@bot.message_handler(commands=['test'])
-def test(message):
-    try:
-        bot.copy_message(
-            chat_id=message.chat.id,
-            from_chat_id=CHANNEL_ID,
-            message_id=45
-        )
-        bot.reply_to(message, "✅ Channel Working")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error: {e}")
 
 # -------- WEBHOOK --------
 @app.route("/", methods=["POST"])
