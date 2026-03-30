@@ -4,32 +4,27 @@ import os
 import qrcode
 from io import BytesIO
 
+# 🔐 CONFIG
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = int(os.environ.get("ADMIN_ID"))  # तुझा Telegram ID
-UPI_ID = os.environ.get("UPI_ID")
-CHANNEL_ID = os.environ.get("CHANNEL_ID")  # -100xxxx format
-
 bot = telebot.TeleBot(BOT_TOKEN)
+
 app = Flask(__name__)
 
-pending = {}  # user_id: movie_id
+ADMIN_ID = 1206664080  # 🔥 तुझा admin ID
 
-# -------- START --------
-import qrcode
-from io import BytesIO
-
+# -------- START COMMAND (QR SEND) --------
 @bot.message_handler(commands=['start'])
 def start(message):
     try:
         movie_id = message.text.split()[1]
     except:
-        bot.reply_to(message, "Invalid link ❌")
+        bot.reply_to(message, "❌ Invalid link")
         return
 
-    price = 10  # 🔥 Fixed price for all movies
+    price = 10
     upi_id = "mp0089@ybl"
 
-    # UPI Payment Link
+    # UPI Link
     upi_link = f"upi://pay?pa={upi_id}&pn=MovieBot&am={price}&cu=INR"
 
     # QR Generate
@@ -39,7 +34,6 @@ def start(message):
     qr.save(bio, "PNG")
     bio.seek(0)
 
-    # Message
     caption = f"""🎬 Movie ID: {movie_id}
 
 💰 Price: ₹{price}
@@ -55,46 +49,33 @@ Payment केल्यावर:
 """
 
     bot.send_photo(message.chat.id, bio, caption=caption)
-# -------- SCREENSHOT --------
+
+
+# -------- HANDLE SCREENSHOT --------
 @bot.message_handler(content_types=['photo'])
 def handle_photo(message):
-    user_id = message.from_user.id
+    # Admin ला forward
+    bot.forward_message(ADMIN_ID, message.chat.id, message.message_id)
 
-    if user_id in pending:
-        movie_id = pending[user_id]
+    # User ला reply
+    bot.reply_to(message, "✅ Screenshot received! Please wait for verification.")
 
-        # Forward to admin
-        bot.forward_message(ADMIN_ID, user_id, message.message_id)
 
-        bot.send_message(
-            ADMIN_ID,
-            f"User ID: {user_id}\nMovie ID: {movie_id}\n\nReply: ok {user_id} OR no {user_id}"
-        )
+# -------- HANDLE UTR / TEXT --------
+@bot.message_handler(func=lambda message: True)
+def handle_text(message):
+    if message.text.startswith("/start"):
+        return
 
-        bot.reply_to(message, "✅ Screenshot sent for verification")
+    # Admin ला send
+    bot.send_message(
+        ADMIN_ID,
+        f"🧾 New UTR / Message\n\n👤 User ID: {message.chat.id}\n\n{message.text}"
+    )
 
-# -------- ADMIN VERIFY --------
-@bot.message_handler(func=lambda m: m.chat.id == ADMIN_ID)
-def admin_verify(message):
-    text = message.text.lower().split()
+    # User ला reply
+    bot.reply_to(message, "✅ Details received! Please wait for verification.")
 
-    if len(text) == 2:
-        action, user_id = text
-        user_id = int(user_id)
-
-        if user_id in pending:
-            movie_id = pending[user_id]
-
-            if action == "ok":
-                # SEND MOVIE
-                bot.copy_message(user_id, CHANNEL_ID, int(movie_id))
-                bot.send_message(user_id, "✅ Payment verified! Movie sent 🎬")
-
-                del pending[user_id]
-
-            elif action == "no":
-                bot.send_message(user_id, "❌ Payment rejected")
-                del pending[user_id]
 
 # -------- WEBHOOK --------
 @app.route("/", methods=["POST"])
@@ -103,6 +84,7 @@ def webhook():
     update = telebot.types.Update.de_json(json_str)
     bot.process_new_updates([update])
     return "OK", 200
+
 
 # -------- RUN --------
 if __name__ == "__main__":
