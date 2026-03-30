@@ -20,10 +20,15 @@ user_data = {}
 def get_movie_name(msg_id):
     try:
         msg = bot.forward_message(ADMIN_ID, CHANNEL_ID, msg_id)
-        return msg.caption or msg.text or f"Movie #{msg_id}"
+
+        movie_name = msg.caption or msg.text or f"Movie #{msg_id}"
+
+        # 🧹 Auto delete forwarded movie
+        bot.delete_message(ADMIN_ID, msg.message_id)
+
+        return movie_name
     except:
         return f"Movie #{msg_id}"
-
 # -------- START --------
 @bot.message_handler(commands=['start'])
 def start(message):
