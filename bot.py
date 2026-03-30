@@ -13,8 +13,18 @@ app = Flask(__name__)
 
 ADMIN_ID = 1206664080
 
+# 🔥 Private Channel ID (IMPORTANT)
+CHANNEL_ID = -1001234567890  # 👉 इथे तुझा real channel id टाक
+
 # 🧠 Temporary Memory DB
 user_data = {}
+
+# 🎬 Movie mapping (movie_id → message_id)
+movie_map = {
+    "29": 45,
+    "31": 46,
+    "32": 47
+}
 
 # -------- START (QR SEND) --------
 @bot.message_handler(commands=['start'])
@@ -41,10 +51,9 @@ def start(message):
     qr.save(bio, "PNG")
     bio.seek(0)
 
-    # Message with Contact
     caption = f"""🎬 Movie ID: {movie_id}
 
-💰 Price: ₹{price}
+💰 Price: ₹10
 
 👉 UPI: {upi_id}
 
@@ -113,11 +122,24 @@ def callback_query(call):
     if data.startswith("approve_"):
         user_id = int(data.split("_")[1])
 
-        # 🎬 Send Movie Link
-        bot.send_message(
-            user_id,
-            "🎉 Payment Approved!\n\n🎬 Here is your movie:\nhttps://t.me/your_channel"
-        )
+        movie_id = user_data.get(user_id, {}).get("movie_id")
+        message_id = movie_map.get(movie_id)
+
+        if message_id:
+            try:
+                bot.forward_message(
+                    chat_id=user_id,
+                    from_chat_id=CHANNEL_ID,  # 🔥 private channel id
+                    message_id=message_id
+                )
+
+                bot.send_message(user_id, "🎉 Payment Approved! Enjoy your movie 🎬")
+
+            except Exception as e:
+                bot.send_message(user_id, "⚠️ Error sending movie. Please contact admin.")
+                print(e)
+        else:
+            bot.send_message(user_id, "❌ Movie not found!")
 
         bot.answer_callback_query(call.id, "Approved ✅")
 
@@ -126,7 +148,7 @@ def callback_query(call):
 
         bot.send_message(
             user_id,
-            "❌ Payment Rejected.\n\nPlease contact admin: @Owner_Of_Groups"
+            "❌ Payment Rejected.\n\nContact: @Owner_Of_Groups"
         )
 
         bot.answer_callback_query(call.id, "Rejected ❌")
